@@ -1,0 +1,30 @@
+session:
+  node_label: "sfn-node-001"
+  printer_id: "voron-2.4-001"
+
+moonraker:
+  endpoint: "ws://127.0.0.1:7125/websocket"
+  api_key: ""                      # set if Moonraker API key is enabled
+  client_name: "axm-edge"
+  client_version: "0.1.0"
+  reconnect_delay: "5s"
+
+epoch:
+  period: "1s"
+  max_silent_ticks: 10             # provenance fault after 10s of printer silence
+
+trust_buffer:
+  db_path: "/var/lib/axm-edge/trust.db"
+
+tpm:
+  device: "/dev/tpmrm0"
+  pcrs: [10, 11, 12, 15]
+  sign_key_handle: 0x81000001
+  ak_handle: 0x81000002
+  quote_interval: "5m"
+  quote_on_lifecycle_edge: true
+
+uploader:
+  endpoint: ""                     # leave empty to log segments to stdout (dev mode)
+  batch_size: 60                   # 60 epochs = 1 minute per segment
+  retry_interval: "30s"
