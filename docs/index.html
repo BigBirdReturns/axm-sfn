@@ -20,13 +20,14 @@
   --teal-border: rgba(26,184,160,0.28);
   --amber:       #c8a84b;
   --amber-dim:   rgba(200,168,75,0.15);
-  --red:         #cc3311;
+  --red:         #f15539;
   --red-dim:     rgba(204,51,17,0.15);
   --green:       #3a8a5a;
   --green-hi:    #4ab872;
+  --teal-text:   #2f9f8c;
   --white:       #dde4e8;
-  --white-dim:   #7a8a90;
-  --white-faint: #4a5a60;
+  --white-dim:   #97a7ad;
+  --white-faint: #7c8c92;
   --rule:        #181b1e;
   --rule-strong: #222528;
   --font-disp:   'Chakra Petch', sans-serif;
@@ -311,7 +312,7 @@ section {
   font-family: var(--font-mono);
   font-size: 9px;
   letter-spacing: 0.25em;
-  color: var(--teal-dim);
+  color: var(--teal-text);
   text-transform: uppercase;
   flex-shrink: 0;
 }
@@ -455,7 +456,7 @@ p:last-child { margin-bottom: 0; }
 .code-lang {
   font-family: var(--font-mono);
   font-size: 9px;
-  color: var(--teal-dim);
+  color: var(--teal-text);
   letter-spacing: 0.1em;
 }
 pre {
@@ -615,7 +616,7 @@ pre .err { color: var(--red); }
   font-size: 12px;
   line-height: 2.1;
 }
-.term-body .prompt { color: var(--teal-dim); user-select: none; }
+.term-body .prompt { color: var(--teal-text); user-select: none; }
 .term-body .cmd { color: var(--white); }
 .term-body .arg { color: var(--teal); }
 .term-body .comment { color: var(--white-faint); }
@@ -718,7 +719,7 @@ pre .err { color: var(--red); }
 .verdict-meta { font-family: var(--font-mono); font-size: 10px; color: var(--white-faint); }
 .verdict-violations { margin-top: 8px; font-family: var(--font-mono); font-size: 10px; color: #ff7a5c; line-height: 1.5; }
 .source-flag { font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.08em; }
-.source-flag.live { color: var(--green); }
+.source-flag.live { color: var(--green-hi); }
 .source-flag.silent { color: var(--red); animation: chain-pulse 1s ease-in-out infinite; }
 
 .demo-stats { display: flex; flex-wrap: wrap; gap: 0; margin: 0; }
@@ -796,7 +797,7 @@ pre .err { color: var(--red); }
   align-items: center;
 }
 .byte-row:last-child { border-bottom: none; }
-.byte-off { font-family: var(--font-mono); font-size: 11px; color: var(--teal-dim); }
+.byte-off { font-family: var(--font-mono); font-size: 11px; color: var(--teal-text); }
 .byte-name { font-family: var(--font-mono); font-size: 11px; color: var(--white); }
 .byte-type { font-family: var(--font-mono); font-size: 10px; color: var(--white-faint); text-align: right; }
 
