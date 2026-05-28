@@ -28,8 +28,8 @@ const (
 // notify_status_update notification. The Status map contains only the changed
 // fields from that notification cycle.
 type StatusDelta struct {
-	Status    map[string]json.RawMessage
-	EventTime float64
+	Status     map[string]json.RawMessage
+	EventTime  float64
 	ReceivedAt time.Time
 }
 
@@ -42,12 +42,12 @@ type Client struct {
 	reconnDelay time.Duration
 	subObjects  map[string]interface{}
 
-	// Updates is the outbound channel. The epoch packetizer reads from this.
+	// Updates is the outbound channel. The custody packetizer reads from this.
 	// It is buffered so a slow consumer does not stall the WS reader goroutine.
 	Updates chan StatusDelta
 
-	log     *slog.Logger
-	nextID  atomic.Int64
+	log    *slog.Logger
+	nextID atomic.Int64
 
 	mu   sync.Mutex
 	conn *websocket.Conn
@@ -338,7 +338,7 @@ func (c *Client) handleStatusUpdate(raw json.RawMessage) {
 		ReceivedAt: time.Now(),
 	}:
 	default:
-		// Drop if consumer is not keeping up. The epoch packetizer will
+		// Drop if consumer is not keeping up. The custody packetizer will
 		// see the stale state and produce a continuity packet regardless.
 		c.log.Warn("moonraker: updates channel full, delta dropped")
 	}

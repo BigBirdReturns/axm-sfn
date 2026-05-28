@@ -1,10 +1,10 @@
-// Package epoch implements the 1-second custody clock.
+// Package custody implements the 1-second custody clock.
 //
-// The epoch packetizer is the core of REQ-5 compliance: it materializes a
-// full EpochPacket every second during an active print, regardless of whether
+// The custody packetizer is the core of REQ-5 compliance: it materializes a
+// full CustodyPacket every second during an active print, regardless of whether
 // Moonraker emitted a delta in that interval. Moonraker's notify_status_update
-// is the state feeder; the epoch ticker is the custody clock.
-package epoch
+// is the state feeder; the custody ticker is the custody clock.
+package custody
 
 import (
 	"context"
@@ -19,20 +19,20 @@ import (
 
 	"github.com/zeebo/blake3"
 
+	"github.com/bigbirdreturns/axm-sfn/internal/hotbuffer"
 	moonclient "github.com/bigbirdreturns/axm-sfn/internal/moonraker"
 	"github.com/bigbirdreturns/axm-sfn/internal/policy"
 	"github.com/bigbirdreturns/axm-sfn/internal/telemetry"
-	"github.com/bigbirdreturns/axm-sfn/internal/trustbuffer"
 	tpmworker "github.com/bigbirdreturns/axm-sfn/internal/tpm"
 )
 
-// Packetizer drives the epoch loop and coordinates the Moonraker state cache,
-// the trust buffer, and the TPM worker.
+// Packetizer drives the custody loop and coordinates the Moonraker state cache,
+// the hot buffer, and the TPM worker.
 type Packetizer struct {
 	cfg    Config
-	buf    *trustbuffer.Buffer
+	buf    *hotbuffer.Buffer
 	tpm    *tpmworker.Worker // may be nil if TPM is unavailable
-	policy *policy.Engine
+	policy *policy.Evaluator
 	log    *slog.Logger
 
 	// Moonraker state cache, updated by applyDelta.
@@ -57,7 +57,7 @@ type Packetizer struct {
 type Config struct {
 	NodeLabel        string
 	PrinterID        string
-	EpochPeriod      time.Duration
+	Period           time.Duration
 	MaxSilentTicks   int
 	QuoteInterval    time.Duration
 	QuoteOnLifecycle bool
@@ -65,22 +65,22 @@ type Config struct {
 	AKHandle         uint32 // TPM persistent AK handle — must match tpm.Worker config
 }
 
-// NewPacketizer creates a Packetizer but does not start the epoch loop.
-func NewPacketizer(cfg Config, buf *trustbuffer.Buffer, tpm *tpmworker.Worker, log *slog.Logger) *Packetizer {
+// NewPacketizer creates a Packetizer but does not start the custody loop.
+func NewPacketizer(cfg Config, buf *hotbuffer.Buffer, tpm *tpmworker.Worker, log *slog.Logger) *Packetizer {
 	return &Packetizer{
 		cfg:           cfg,
 		buf:           buf,
 		tpm:           tpm,
-		policy:        policy.NewEngine(log),
+		policy:        policy.NewEvaluator(log),
 		log:           log,
 		quoteInterval: cfg.QuoteInterval,
 	}
 }
 
-// Run starts the epoch loop. It reads deltas from updates and ticks at
-// cfg.EpochPeriod. Blocks until ctx is cancelled.
+// Run starts the custody loop. It reads deltas from updates and ticks at
+// cfg.Period. Blocks until ctx is cancelled.
 func (p *Packetizer) Run(ctx context.Context, updates <-chan moonclient.StatusDelta) {
-	ticker := time.NewTicker(p.cfg.EpochPeriod)
+	ticker := time.NewTicker(p.cfg.Period)
 	defer ticker.Stop()
 
 	for {
@@ -139,13 +139,13 @@ func (p *Packetizer) detectLifecycleEdge(prev, next string) {
 	if prev == next {
 		return
 	}
-	p.log.Info("epoch: print state transition", "from", prev, "to", next)
+	p.log.Info("custody: print state transition", "from", prev, "to", next)
 	// Session management.
 	switch {
 	case next == "printing" && prev != "paused":
 		p.startNewSession()
 	case next == "complete" || next == "cancelled" || next == "error":
-		p.log.Info("epoch: session ended", "session_id", p.sessionID, "seq", p.seq)
+		p.log.Info("custody: session ended", "session_id", p.sessionID, "seq", p.seq)
 	}
 	// Quote on lifecycle edge if configured.
 	if p.cfg.QuoteOnLifecycle && p.tpm != nil {
@@ -165,14 +165,14 @@ func (p *Packetizer) startNewSession() {
 	p.lastQuoteID = 0
 	p.silentTicks = 0
 	p.lastQuoteAt = time.Time{}
-	p.log.Info("epoch: new session started", "session_id", p.sessionID)
+	p.log.Info("custody: new session started", "session_id", p.sessionID)
 }
 
 func (p *Packetizer) scheduleImmediateQuote() {
 	p.immediateQuote = true
 }
 
-// onTick is called once per epoch. It materializes the current printer state
+// onTick is called once per custody tick. It materializes the current printer state
 // into a packet, computes the chain hashes, optionally drives a TPM quote,
 // and writes the packet to the trust buffer.
 func (p *Packetizer) onTick(ctx context.Context, tick time.Time) {
@@ -191,12 +191,12 @@ func (p *Packetizer) onTick(ctx context.Context, tick time.Time) {
 
 	p.silentTicks++
 	if p.silentTicks > p.cfg.MaxSilentTicks {
-		p.log.Warn("epoch: provenance fault — printer silent",
+		p.log.Warn("custody: provenance fault — printer silent",
 			"silent_ticks", p.silentTicks,
 			"session_id", p.sessionID,
 			"seq", p.seq)
 		if err := p.buf.RecordProvenanceFault(ctx, p.sessionID, p.seq, "printer telemetry silence exceeded threshold"); err != nil {
-			p.log.Error("epoch: failed to record provenance fault", "error", err)
+			p.log.Error("custody: failed to record provenance fault", "error", err)
 		}
 		// Reset so we don't flood the fault table.
 		p.silentTicks = 0
@@ -206,16 +206,16 @@ func (p *Packetizer) onTick(ctx context.Context, tick time.Time) {
 
 	// Evaluate against active Material-Process Profile (Track 2 policy engine).
 	// Flat float map — no JSON Pointer parsing in the hot path.
-	telemetryMap := policy.TelemetryFromEpoch(
+	telemetryMap := policy.TelemetryFromCustody(
 		state.Extruder.Temperature, state.Extruder.Target, state.Extruder.Power,
 		state.HeaterBed.Temperature, state.HeaterBed.Target, state.HeaterBed.Power,
 		state.MotionReport.LiveVelocity, state.MotionReport.LiveExtruderVelocity,
 		state.ChamberTempC, state.ChamberPresent,
 	)
 	verdict := p.policy.Evaluate(telemetryMap)
-	var policyVerdict *telemetry.PolicyVerdict
+	var decision *telemetry.Decision
 	if verdict.ProfileID != "null" {
-		policyVerdict = &telemetry.PolicyVerdict{
+		decision = &telemetry.Decision{
 			Pass:       verdict.Pass,
 			ProfileID:  verdict.ProfileID,
 			Violations: verdict.Violations,
@@ -223,7 +223,7 @@ func (p *Packetizer) onTick(ctx context.Context, tick time.Time) {
 	}
 
 	// Build the pre-TPM payload (all fields except TPMSig, PacketSHA256, PacketBLAKE3).
-	pkt := &telemetry.EpochPacket{
+	pkt := &telemetry.CustodyPacket{
 		SessionID:            p.sessionID,
 		NodeLabel:            p.cfg.NodeLabel,
 		PrinterID:            p.cfg.PrinterID,
@@ -246,7 +246,7 @@ func (p *Packetizer) onTick(ctx context.Context, tick time.Time) {
 		PrintDurationS:       state.PrintStats.PrintDuration,
 		MCUVersion:           state.MCU.MCUVersion,
 		MCUBuildVersions:     state.MCU.MCUBuildVersions,
-		PolicyVerdict:        policyVerdict,
+		Decision:             decision,
 		PrevPacketBLAKE3:     p.prevBlake3,
 		QuoteRef:             p.lastQuoteID,
 	}
@@ -254,7 +254,7 @@ func (p *Packetizer) onTick(ctx context.Context, tick time.Time) {
 	// Canonical serialization for signing (deterministic).
 	canonical, err := json.Marshal(pkt)
 	if err != nil {
-		p.log.Error("epoch: marshal packet", "error", err)
+		p.log.Error("custody: marshal packet", "error", err)
 		return
 	}
 
@@ -268,9 +268,9 @@ func (p *Packetizer) onTick(ctx context.Context, tick time.Time) {
 		nonce := tpmworker.DeriveQuoteNonce(p.sessionNonce, sha[:], p.prevBlake3, p.seq)
 		qr, err := p.tpm.Quote(nonce)
 		if err != nil {
-			p.log.Error("epoch: tpm quote failed", "error", err)
+			p.log.Error("custody: tpm quote failed", "error", err)
 		} else {
-			qid, err := p.buf.WriteQuote(ctx, trustbuffer.QuoteRow{
+			qid, err := p.buf.WriteQuote(ctx, hotbuffer.QuoteRow{
 				SessionID:  p.sessionID,
 				Seq:        p.seq,
 				PCRs:       p.cfg.PCRs,
@@ -280,7 +280,7 @@ func (p *Packetizer) onTick(ctx context.Context, tick time.Time) {
 				AKHandle:   p.cfg.AKHandle,
 			})
 			if err != nil {
-				p.log.Error("epoch: write quote", "error", err)
+				p.log.Error("custody: write quote", "error", err)
 			} else {
 				quoteID = qid
 				p.lastQuoteID = qid
@@ -296,7 +296,7 @@ func (p *Packetizer) onTick(ctx context.Context, tick time.Time) {
 	if p.tpm != nil {
 		tpmSig, err = p.tpm.SignPacket(canonical)
 		if err != nil {
-			p.log.Error("epoch: tpm sign failed", "error", err)
+			p.log.Error("custody: tpm sign failed", "error", err)
 			// Continue without TPM sig — note the anomaly flag in a real impl.
 		}
 	}
@@ -306,15 +306,15 @@ func (p *Packetizer) onTick(ctx context.Context, tick time.Time) {
 	pkt.PacketBLAKE3 = computePacketBLAKE3(p.seq, p.sessionID, canonical, tpmSig, p.prevBlake3)
 
 	// Write to trust buffer.
-	row := trustbuffer.PacketRow{
+	row := hotbuffer.PacketRow{
 		SessionID:          p.sessionID,
 		Seq:                p.seq,
 		TickUTC:            tick.UTC(),
 		TickMonoNs:         monoNs,
 		TelemetryJSON:      canonical,
-		AnomalyExtruder:    policyVerdict != nil && !policyVerdict.Pass,
-		AnomalyBed:         false, // deprecated — verdict covers all rules
-		AnomalyLoadCell:    false, // deprecated — verdict covers all rules
+		AnomalyExtruder:    decision != nil && !decision.Pass,
+		AnomalyBed:         false, // deprecated — decision covers all rules
+		AnomalyLoadCell:    false, // deprecated — decision covers all rules
 		RecoveredFromCache: pkt.RecoveredFromCache,
 		PrevPacketBLAKE3:   p.prevBlake3,
 		PacketSHA256:       pkt.PacketSHA256,
@@ -323,14 +323,14 @@ func (p *Packetizer) onTick(ctx context.Context, tick time.Time) {
 
 	rowID, err := p.buf.WritePacket(ctx, row)
 	if err != nil {
-		p.log.Error("epoch: write packet to trust buffer", "seq", p.seq, "error", err)
+		p.log.Error("custody: write packet to trust buffer", "seq", p.seq, "error", err)
 		return
 	}
 
 	// Backfill TPM sig if we have one (separate update avoids blocking the hot path).
 	if tpmSig != nil {
 		if err := p.buf.SetTPMSig(ctx, rowID, tpmSig, quoteID); err != nil {
-			p.log.Warn("epoch: failed to set tpm sig", "row_id", rowID, "error", err)
+			p.log.Warn("custody: failed to set tpm sig", "row_id", rowID, "error", err)
 		}
 	}
 

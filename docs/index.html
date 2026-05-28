@@ -1,0 +1,1208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>axm-sfn — Sovereign Fabrication Node</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300&family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Source+Serif+4:ital,wght@0,300;0,400;0,600;1,300;1,400&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:          #090a0b;
+  --bg-1:        #0f1012;
+  --bg-2:        #161719;
+  --bg-3:        #1c1d20;
+  --teal:        #1ab8a0;
+  --teal-hi:     #2adcc2;
+  --teal-dim:    #0a5c52;
+  --teal-glow:   rgba(26,184,160,0.10);
+  --teal-border: rgba(26,184,160,0.28);
+  --amber:       #c8a84b;
+  --amber-dim:   rgba(200,168,75,0.15);
+  --red:         #cc3311;
+  --red-dim:     rgba(204,51,17,0.15);
+  --green:       #3a8a5a;
+  --green-hi:    #4ab872;
+  --white:       #dde4e8;
+  --white-dim:   #7a8a90;
+  --white-faint: #4a5a60;
+  --rule:        #181b1e;
+  --rule-strong: #222528;
+  --font-disp:   'Chakra Petch', sans-serif;
+  --font-mono:   'Space Mono', monospace;
+  --font-body:   'Source Serif 4', Georgia, serif;
+  --eco-bg:       #090a0b;
+  --eco-border:   #222528;
+  --eco-text:     #7a8a90;
+  --eco-text-hi:  #dde4e8;
+  --eco-accent:   #1ab8a0;
+  --eco-mono:     'Space Mono', monospace;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+
+body {
+  background: var(--bg);
+  color: var(--white);
+  font-family: var(--font-body);
+  font-size: clamp(14px, 1.5vw, 17px);
+  line-height: 1.65;
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
+
+/* ── Noise texture ─────────────────────────────────────── */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
+  background-size: 256px 256px;
+  pointer-events: none;
+  z-index: 9999;
+}
+
+/* ── ECO NAV ───────────────────────────────────────────── */
+.eco-nav {
+  position: relative;
+  z-index: 900;
+  background: var(--eco-bg);
+  border-bottom: 1px solid var(--eco-border);
+  font-family: var(--eco-mono);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  user-select: none;
+}
+.eco-nav-inner {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 24px;
+  display: flex;
+  align-items: center;
+  height: 36px;
+  gap: 6px;
+}
+.eco-nav-brand {
+  color: var(--eco-text);
+  font-size: 9px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  margin-right: 12px;
+  white-space: nowrap;
+}
+.eco-nav-brand strong { color: var(--eco-text-hi); font-weight: 500; }
+.eco-nav-sep {
+  width: 1px; height: 14px;
+  background: var(--eco-border);
+  margin: 0 6px;
+  flex-shrink: 0;
+}
+.eco-nav a {
+  color: var(--eco-text);
+  text-decoration: none;
+  padding: 6px 10px;
+  border-radius: 3px;
+  transition: color 0.15s, background 0.15s;
+  white-space: nowrap;
+  position: relative;
+}
+.eco-nav a:hover { color: var(--eco-text-hi); background: rgba(255,255,255,0.03); }
+.eco-nav a.eco-active { color: var(--eco-accent); }
+.eco-nav a.eco-active::after {
+  content: '';
+  position: absolute;
+  bottom: -1px; left: 10px; right: 10px;
+  height: 1px;
+  background: var(--eco-accent);
+  opacity: 0.6;
+}
+.eco-nav-kind { font-size: 8px; opacity: 0.5; display: inline-block; margin-left: 2px; vertical-align: top; }
+.eco-nav-right { margin-left: auto; display: flex; align-items: center; gap: 4px; }
+.eco-nav-github { opacity: 0.4; transition: opacity 0.15s; }
+.eco-nav-github:hover { opacity: 0.8; }
+@media (max-width: 768px) {
+  .eco-nav-inner { overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+  .eco-nav-inner::-webkit-scrollbar { display: none; }
+  .eco-nav a { padding: 6px 7px; font-size: 9px; }
+  .eco-nav-brand { display: none; }
+}
+
+/* ── PAGE NAV ──────────────────────────────────────────── */
+nav {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background: rgba(9,10,11,0.95);
+  backdrop-filter: blur(6px);
+  border-bottom: 1px solid var(--rule-strong);
+  display: flex;
+  align-items: stretch;
+  height: 40px;
+  overflow-x: auto;
+}
+nav::-webkit-scrollbar { display: none; }
+.nav-brand {
+  font-family: var(--font-disp);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  color: var(--teal);
+  padding: 0 20px;
+  display: flex;
+  align-items: center;
+  border-right: 1px solid var(--rule-strong);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.nav-brand span { color: var(--white-dim); font-weight: 300; }
+nav a {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  color: var(--white-faint);
+  text-decoration: none;
+  padding: 0 16px;
+  display: flex;
+  align-items: center;
+  white-space: nowrap;
+  border-bottom: 2px solid transparent;
+  transition: color 0.15s, border-color 0.15s;
+}
+nav a:hover { color: var(--white-dim); }
+nav a.active { color: var(--teal); border-bottom-color: var(--teal); }
+
+/* ── CHAIN PULSE (replaces REC dot) ───────────────────── */
+@keyframes chain-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(0.7); }
+}
+.chain-dot {
+  display: inline-block;
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: var(--teal);
+  animation: chain-pulse 2s ease-in-out infinite;
+  margin-right: 8px;
+  flex-shrink: 0;
+}
+
+/* ── HERO ──────────────────────────────────────────────── */
+.hero {
+  position: relative;
+  padding: 72px 64px 64px;
+  border-bottom: 1px solid var(--rule-strong);
+  overflow: hidden;
+}
+/* Corner brackets */
+.hero::before, .hero::after {
+  content: '';
+  position: absolute;
+  width: 24px; height: 24px;
+  border-color: var(--teal-dim);
+  border-style: solid;
+  opacity: 0.7;
+}
+.hero::before { top: 24px; left: 24px; border-width: 1px 0 0 1px; }
+.hero::after  { bottom: 24px; right: 24px; border-width: 0 1px 1px 0; }
+
+/* Faint grid lines in hero background */
+.hero-grid {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+  opacity: 0.04;
+}
+.hero-grid::before {
+  content: '';
+  position: absolute;
+  inset: -100%;
+  background-image:
+    linear-gradient(var(--teal) 1px, transparent 1px),
+    linear-gradient(90deg, var(--teal) 1px, transparent 1px);
+  background-size: 48px 48px;
+}
+
+.hero-badge {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.25em;
+  color: var(--teal);
+  text-transform: uppercase;
+  margin-bottom: 28px;
+  display: flex;
+  align-items: center;
+}
+
+h1 {
+  font-family: var(--font-disp);
+  font-size: clamp(44px, 8.5vw, 100px);
+  font-weight: 700;
+  line-height: 0.9;
+  letter-spacing: -0.01em;
+  color: var(--white);
+  text-transform: uppercase;
+  margin-bottom: 28px;
+}
+h1 em {
+  font-style: normal;
+  color: var(--teal);
+  display: block;
+}
+
+.hero-sub {
+  font-family: var(--font-body);
+  font-size: 18px;
+  font-weight: 300;
+  font-style: italic;
+  color: var(--white-dim);
+  max-width: 620px;
+  line-height: 1.7;
+  margin-bottom: 48px;
+  border-left: 2px solid var(--teal-dim);
+  padding-left: 20px;
+}
+
+.hero-meta {
+  display: grid;
+  grid-template-columns: repeat(5, auto);
+  gap: 0;
+  border: 1px solid var(--rule-strong);
+  width: fit-content;
+}
+.meta-cell {
+  padding: 12px 18px;
+  border-right: 1px solid var(--rule-strong);
+}
+.meta-cell:last-child { border-right: none; }
+.meta-key {
+  font-family: var(--font-mono);
+  font-size: 8px;
+  letter-spacing: 0.25em;
+  color: var(--white-faint);
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+.meta-val {
+  font-family: var(--font-disp);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  color: var(--white);
+}
+.meta-val.ok   { color: var(--green-hi); }
+.meta-val.live { color: var(--teal-hi); }
+.meta-val.warn { color: var(--amber); }
+
+/* ── SECTION BASE ──────────────────────────────────────── */
+section {
+  padding: 72px 64px;
+  border-bottom: 1px solid var(--rule);
+}
+.sec-hd {
+  display: flex;
+  align-items: baseline;
+  gap: 16px;
+  margin-bottom: 48px;
+}
+.sec-num {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.25em;
+  color: var(--teal-dim);
+  text-transform: uppercase;
+  flex-shrink: 0;
+}
+h2 {
+  font-family: var(--font-disp);
+  font-size: clamp(22px, 3.5vw, 38px);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--white);
+  text-transform: uppercase;
+  line-height: 1.1;
+}
+p {
+  font-family: var(--font-body);
+  font-size: 16px;
+  color: var(--white-dim);
+  line-height: 1.8;
+  max-width: 680px;
+  margin-bottom: 16px;
+}
+p:last-child { margin-bottom: 0; }
+
+/* ── MANIFESTO CARDS ───────────────────────────────────── */
+.mani-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1px;
+  background: var(--rule-strong);
+  border: 1px solid var(--rule-strong);
+  margin-top: 40px;
+}
+.mani-card {
+  background: var(--bg-1);
+  padding: 32px 28px;
+  position: relative;
+  overflow: hidden;
+}
+.mani-card::before {
+  content: attr(data-n);
+  position: absolute;
+  top: 16px; right: 20px;
+  font-family: var(--font-disp);
+  font-size: 52px;
+  font-weight: 700;
+  color: var(--rule-strong);
+  line-height: 1;
+  pointer-events: none;
+}
+.mani-rule {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.2em;
+  color: var(--teal);
+  text-transform: uppercase;
+  margin-bottom: 10px;
+}
+.mani-card p {
+  font-size: 15px;
+  line-height: 1.7;
+  color: var(--white-dim);
+  max-width: none;
+}
+.mani-card strong { color: var(--white); font-weight: 500; }
+.mani-card code { font-family: var(--font-mono); font-size: 12px; color: var(--teal); background: var(--teal-glow); padding: 1px 5px; }
+
+/* ── PIPELINE DIAGRAM ──────────────────────────────────── */
+.pipeline {
+  margin-top: 40px;
+  border: 1px solid var(--rule-strong);
+  overflow: hidden;
+}
+.pipe-step {
+  display: grid;
+  grid-template-columns: 200px 1fr;
+  border-bottom: 1px solid var(--rule-strong);
+}
+.pipe-step:last-child { border-bottom: none; }
+.pipe-label {
+  padding: 20px 24px;
+  background: var(--bg-2);
+  border-right: 1px solid var(--rule-strong);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+.pipe-name {
+  font-family: var(--font-disp);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  color: var(--teal);
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+.pipe-pkg {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--white-faint);
+}
+.pipe-body {
+  padding: 20px 28px;
+  font-size: 14px;
+  color: var(--white-dim);
+  line-height: 1.7;
+  display: flex;
+  align-items: center;
+}
+.pipe-body code { font-family: var(--font-mono); font-size: 12px; color: var(--teal); background: var(--teal-glow); padding: 1px 5px; }
+.pipe-connector {
+  grid-column: 1 / -1;
+  padding: 8px 24px;
+  background: var(--bg);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--white-faint);
+  letter-spacing: 0.1em;
+  border-bottom: 1px solid var(--rule-strong);
+}
+
+/* ── CODE BLOCKS ───────────────────────────────────────── */
+.code-wrap {
+  margin-top: 24px;
+  border: 1px solid var(--rule-strong);
+  overflow: hidden;
+}
+.code-hd {
+  padding: 8px 20px;
+  background: var(--bg-2);
+  border-bottom: 1px solid var(--rule-strong);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.code-title {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  color: var(--white-faint);
+  text-transform: uppercase;
+}
+.code-lang {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: var(--teal-dim);
+  letter-spacing: 0.1em;
+}
+pre {
+  padding: 20px 24px;
+  background: var(--bg-1);
+  overflow-x: auto;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 2;
+  color: var(--white-dim);
+  margin: 0;
+}
+pre .kw  { color: var(--teal); }
+pre .cm  { color: var(--white-faint); font-style: italic; }
+pre .st  { color: var(--amber); }
+pre .nm  { color: var(--white); }
+pre .ok  { color: var(--green-hi); }
+pre .err { color: var(--red); }
+
+/* ── TRACK TABLE ───────────────────────────────────────── */
+.track-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 32px;
+  border: 1px solid var(--rule-strong);
+  font-size: 14px;
+}
+.track-table th {
+  background: var(--bg-2);
+  color: var(--teal);
+  padding: 12px 20px;
+  text-align: left;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  font-weight: 400;
+  border-bottom: 1px solid var(--rule-strong);
+}
+.track-table td {
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--rule);
+  color: var(--white-dim);
+  vertical-align: top;
+  line-height: 1.6;
+}
+.track-table tr:last-child td { border-bottom: none; }
+.track-table tr:hover td { background: rgba(26,184,160,0.025); }
+.done { color: var(--green-hi); font-family: var(--font-mono); font-size: 11px; }
+.open { color: var(--white-faint); font-family: var(--font-mono); font-size: 11px; }
+.track-item { font-family: var(--font-mono); font-size: 11px; color: var(--white); }
+.track-desc { font-size: 13px; color: var(--white-dim); margin-top: 3px; }
+
+/* ── THREE-LAYER TABLE ─────────────────────────────────── */
+.layer-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 32px;
+  border: 1px solid var(--rule-strong);
+  font-size: 14px;
+}
+.layer-table th {
+  background: var(--bg-2);
+  color: var(--teal);
+  padding: 12px 20px;
+  text-align: left;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  font-weight: 400;
+  border-bottom: 1px solid var(--rule-strong);
+}
+.layer-table td {
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--rule);
+  vertical-align: top;
+  line-height: 1.6;
+}
+.layer-table tr:last-child td { border-bottom: none; }
+.l1 { border-left: 3px solid var(--teal); }
+.l2 { border-left: 3px solid #6a8ab8; }
+.l3 { border-left: 3px solid #6a8a6a; }
+.layer-num {
+  font-family: var(--font-disp);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  margin-bottom: 4px;
+}
+.l1 .layer-num { color: var(--teal); }
+.l2 .layer-num { color: #6a8ab8; }
+.l3 .layer-num { color: #6a8a6a; }
+.layer-name { font-family: var(--font-mono); font-size: 12px; color: var(--white); margin-bottom: 6px; }
+.layer-desc { font-size: 13px; color: var(--white-dim); }
+
+/* ── CALLOUT ───────────────────────────────────────────── */
+.callout {
+  margin-top: 32px;
+  display: grid;
+  grid-template-columns: 3px 1fr;
+  border: 1px solid var(--rule-strong);
+}
+.callout-bar { background: var(--teal-dim); }
+.callout-body { padding: 24px 28px; }
+.callout-label {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.22em;
+  color: var(--teal);
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+.callout-body p {
+  font-size: 15px;
+  line-height: 1.7;
+  max-width: none;
+  color: var(--white-dim);
+}
+.callout-body code {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--teal);
+  background: var(--teal-glow);
+  padding: 1px 5px;
+}
+
+/* ── QUICK START TERMINAL ──────────────────────────────── */
+.terminal {
+  margin-top: 24px;
+  border: 1px solid var(--rule-strong);
+  overflow: hidden;
+}
+.term-hd {
+  padding: 8px 16px;
+  background: var(--bg-2);
+  border-bottom: 1px solid var(--rule-strong);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.term-dot { width: 8px; height: 8px; border-radius: 50%; }
+.term-dot.r { background: #cc3311; }
+.term-dot.y { background: #c8a84b; }
+.term-dot.g { background: var(--teal-dim); }
+.term-title {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--white-faint);
+  letter-spacing: 0.1em;
+  margin-left: auto;
+}
+.term-body {
+  padding: 20px 24px;
+  background: var(--bg-1);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 2.1;
+}
+.term-body .prompt { color: var(--teal-dim); user-select: none; }
+.term-body .cmd { color: var(--white); }
+.term-body .arg { color: var(--teal); }
+.term-body .comment { color: var(--white-faint); }
+.term-body .out-ok { color: var(--green-hi); }
+.term-body .out { color: var(--white-dim); }
+
+/* ── FORMAT SPEC ───────────────────────────────────────── */
+.format-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1px;
+  background: var(--rule-strong);
+  border: 1px solid var(--rule-strong);
+  margin-top: 32px;
+}
+.fmt-panel { background: var(--bg-1); padding: 28px; }
+.fmt-title {
+  font-family: var(--font-disp);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  color: var(--teal);
+  text-transform: uppercase;
+  margin-bottom: 16px;
+}
+.byte-row {
+  display: grid;
+  grid-template-columns: 90px 1fr 80px;
+  gap: 0;
+  border-bottom: 1px solid var(--rule);
+  padding: 8px 0;
+  align-items: center;
+}
+.byte-row:last-child { border-bottom: none; }
+.byte-off { font-family: var(--font-mono); font-size: 11px; color: var(--teal-dim); }
+.byte-name { font-family: var(--font-mono); font-size: 11px; color: var(--white); }
+.byte-type { font-family: var(--font-mono); font-size: 10px; color: var(--white-faint); text-align: right; }
+
+/* ── COMPARE TABLE ─────────────────────────────────────── */
+.compare {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 32px;
+  border: 1px solid var(--rule-strong);
+  font-size: 13px;
+}
+.compare th {
+  background: var(--bg-2);
+  color: var(--teal);
+  padding: 10px 18px;
+  text-align: left;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  font-weight: 400;
+  border-bottom: 1px solid var(--rule-strong);
+}
+.compare td {
+  padding: 12px 18px;
+  border-bottom: 1px solid var(--rule);
+  color: var(--white-dim);
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+.compare tr:last-child td { border-bottom: none; }
+.compare .field { color: var(--white); }
+.compare .teal { color: var(--teal); }
+.compare .dim  { color: var(--white-faint); }
+
+/* ── FOOTER ────────────────────────────────────────────── */
+footer {
+  padding: 40px 64px;
+  border-top: 1px solid var(--rule-strong);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 20px;
+}
+.foot-left {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--white-faint);
+  line-height: 2;
+  letter-spacing: 0.06em;
+}
+.foot-left strong { color: var(--teal); font-weight: 500; }
+.foot-links { display: flex; gap: 24px; flex-wrap: wrap; }
+.foot-links a {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  color: var(--white-faint);
+  text-decoration: none;
+  text-transform: uppercase;
+  transition: color 0.2s;
+}
+.foot-links a:hover { color: var(--teal); }
+
+/* ── RESPONSIVE ────────────────────────────────────────── */
+@media (max-width: 900px) {
+  .hero, section, footer { padding-left: 24px; padding-right: 24px; }
+  .mani-grid { grid-template-columns: 1fr; }
+  .format-grid { grid-template-columns: 1fr; }
+  .hero-meta { grid-template-columns: repeat(3, auto); }
+  .pipe-step { grid-template-columns: 160px 1fr; }
+}
+@media (max-width: 600px) {
+  h1 { font-size: clamp(36px, 10vw, 56px); }
+  .hero-meta { grid-template-columns: repeat(2, auto); }
+  .pipe-step { grid-template-columns: 1fr; }
+  .pipe-label { border-right: none; border-bottom: 1px solid var(--rule-strong); }
+}
+</style>
+</head>
+<body>
+
+<!-- ECO NAV -->
+<div class="eco-nav" data-active="sfn">
+  <div class="eco-nav-inner">
+    <div class="eco-nav-brand"><strong>AXM</strong> &nbsp;Protocol</div>
+    <div class="eco-nav-sep"></div>
+    <a href="https://bigbirdreturns.github.io/axm-genesis/" data-page="genesis">Genesis<span class="eco-nav-kind"> kernel</span></a>
+    <a href="https://bigbirdreturns.github.io/axm-core/" data-page="core">Core<span class="eco-nav-kind"> hub</span></a>
+    <div class="eco-nav-sep"></div>
+    <a href="https://bigbirdreturns.github.io/axm-chat/" data-page="chat">Chat<span class="eco-nav-kind"> spoke</span></a>
+    <a href="https://bigbirdreturns.github.io/axm-show/" data-page="show">Show<span class="eco-nav-kind"> spoke</span></a>
+    <a href="https://bigbirdreturns.github.io/axm-embodied/" data-page="embodied">Embodied<span class="eco-nav-kind"> spoke</span></a>
+    <a href="https://bigbirdreturns.github.io/axm-sfn/" data-page="sfn">SFN<span class="eco-nav-kind"> spoke</span></a>
+    <div class="eco-nav-right">
+      <a href="https://github.com/BigBirdReturns" class="eco-nav-github" target="_blank" title="GitHub">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+      </a>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  const nav = document.querySelector('.eco-nav');
+  if (!nav) return;
+  const active = nav.dataset.active;
+  if (active) {
+    const link = nav.querySelector(`[data-page="${active}"]`);
+    if (link) link.classList.add('eco-active');
+  }
+})();
+</script>
+
+<!-- PAGE NAV -->
+<nav id="main-nav">
+  <div class="nav-brand">axm-sfn<span> · fabrication</span></div>
+  <a href="#manifesto"  data-section="manifesto">Why</a>
+  <a href="#pipeline"   data-section="pipeline">Pipeline</a>
+  <a href="#layers"     data-section="layers">Three Layers</a>
+  <a href="#format"     data-section="format">Stream Format</a>
+  <a href="#policy"     data-section="policy">Policy Engine</a>
+  <a href="#conform"    data-section="conform">Track Status</a>
+  <a href="#start"      data-section="start">Quick Start</a>
+</nav>
+
+<!-- HERO -->
+<header class="hero" id="hero">
+  <div class="hero-grid"></div>
+  <div class="hero-badge">
+    <span class="chain-dot"></span>
+    AXM Ecosystem · Fabrication Spoke · v0.1
+  </div>
+  <h1>Sovereign<em>Fabrication.</em></h1>
+  <p class="hero-sub">Every custody tick of a 3D print sealed into a BLAKE3 chain, hardware-bound to a TPM 2.0 node, and uploaded as a signed AXM journal shard. The printer cannot lie about what it made.</p>
+  <div class="hero-meta">
+    <div class="meta-cell">
+      <div class="meta-key">Daemon</div>
+      <div class="meta-val live">axm-edge</div>
+    </div>
+    <div class="meta-cell">
+      <div class="meta-key">Custody</div>
+      <div class="meta-val">1 Hz</div>
+    </div>
+    <div class="meta-cell">
+      <div class="meta-key">Hot Stream</div>
+      <div class="meta-val live">AXLF / AXLR</div>
+    </div>
+    <div class="meta-cell">
+      <div class="meta-key">REQ 5</div>
+      <div class="meta-val ok">Enforced</div>
+    </div>
+    <div class="meta-cell">
+      <div class="meta-key">License</div>
+      <div class="meta-val warn">AGPL-3.0</div>
+    </div>
+  </div>
+</header>
+
+<!-- §01 MANIFESTO -->
+<section id="manifesto">
+  <div class="sec-hd">
+    <span class="sec-num">§ 01</span>
+    <h2>Why This Exists</h2>
+  </div>
+  <p>Defense supply chains increasingly depend on distributed additive manufacturing. A part printed in a contractor's facility for a fielded system carries an implicit trust assumption: that it was printed correctly, with the right material, under the right thermal conditions, by a node whose firmware hasn't been tampered with.</p>
+  <p>There is currently no cryptographic protocol for that assumption. axm-sfn is the protocol.</p>
+  <div class="mani-grid">
+    <div class="mani-card" data-n="I">
+      <div class="mani-rule">The Custody Clock</div>
+      <p>The 1 Hz custody ticker is independent of Moonraker's event stream. <strong>Printer silence is recorded, not ignored.</strong> If the machine goes quiet mid-print, the custody clock keeps ticking and records a provenance fault. You cannot delete history by disconnecting the sensor.</p>
+    </div>
+    <div class="mani-card" data-n="II">
+      <div class="mani-rule">Hardware Binding</div>
+      <p>Every custody packet is signed by a <strong>TPM 2.0 RSA-PSS key</strong> that never leaves the node. TPM quotes bind the PCR state of the platform to specific points in the telemetry chain. A VM cannot impersonate a physical fabrication node.</p>
+    </div>
+    <div class="mani-card" data-n="III">
+      <div class="mani-rule">Non-Selective Recording</div>
+      <p>AXM REQ 5 is enforced at the protocol level. The <code>cam_latents.bin</code> frame sequence must be gap-free and monotone. <strong>Any discontinuity is a hard verification failure</strong> — the same exit code as a forged signature. A node that drops frames is not conformant.</p>
+    </div>
+    <div class="mani-card" data-n="IV">
+      <div class="mani-rule">The Tollbooth Model</div>
+      <p>The protocol is open. Anyone can run axm-edge. <strong>Certification is the barrier to entry.</strong> To appear on an approved vendor list, a node must pass the axm-sfn conformance suite, submit a NIST challenge artifact, and produce a signed Material-Process Profile shard. <code>axm-verify</code> is the tollbooth.</p>
+    </div>
+  </div>
+</section>
+
+<!-- §02 PIPELINE -->
+<section id="pipeline">
+  <div class="sec-hd">
+    <span class="sec-num">§ 02</span>
+    <h2>Daemon Pipeline</h2>
+  </div>
+  <p>axm-edge is a Go daemon that runs alongside Klipper on the printer's host (Raspberry Pi 4 or equivalent). It coordinates four subsystems — Moonraker state, custody timing, TPM attestation, and the SQLite WAL hot buffer — into a single tamper-evident telemetry chain.</p>
+  <div class="pipeline">
+    <div class="pipe-step">
+      <div class="pipe-label">
+        <div class="pipe-name">Moonraker WS</div>
+        <div class="pipe-pkg">internal/moonraker</div>
+      </div>
+      <div class="pipe-body">JSON-RPC WebSocket client. Subscribes to extruder, bed, motion, print_stats, MCU, and optional chamber sensor. Emits <code>StatusDelta</code> on state changes. Auto-reconnects. Never blocks the Klipper motion path.</div>
+    </div>
+    <div class="pipe-connector">▼ &nbsp; state deltas → State Cache (sync.RWMutex) &nbsp; ▼ &nbsp; 1Hz tick (independent of Moonraker)</div>
+    <div class="pipe-step">
+      <div class="pipe-label">
+        <div class="pipe-name">Custody Packetizer</div>
+        <div class="pipe-pkg">internal/custody</div>
+      </div>
+      <div class="pipe-body">The custody clock. Fires every 1s regardless of Moonraker activity. Snapshots the state cache, evaluates the active Material-Process Profile via <code>policy.Evaluator</code>, calls <code>tpm.SignPacket()</code>, and computes the BLAKE3 chain link.</div>
+    </div>
+    <div class="pipe-connector">▼ &nbsp; PacketRow → SQLite WAL (survives network outage, power loss recovery on next boot)</div>
+    <div class="pipe-step">
+      <div class="pipe-label">
+        <div class="pipe-name">Hot Buffer</div>
+        <div class="pipe-pkg">internal/hotbuffer</div>
+      </div>
+      <div class="pipe-body">SQLite WAL. Append-only during print. Stores telemetry JSON, TPM sig, BLAKE3 chain, quote references, and segment upload state. A 40-hour print survives a network outage intact. Gaps recorded as provenance faults.</div>
+    </div>
+    <div class="pipe-connector">▼ &nbsp; on retryInterval: PacketHashes() → BLAKE3 Merkle root → WriteSegment()</div>
+    <div class="pipe-step">
+      <div class="pipe-label">
+        <div class="pipe-name">Uploader</div>
+        <div class="pipe-pkg">internal/uploader</div>
+      </div>
+      <div class="pipe-body">Batches contiguous pending packets into Merkle segments (default: 60 packets = 1 minute). Computes the RFC 6962 BLAKE3 Merkle root. POSTs to NodalFlow. Falls back to stdout JSON in dev mode if no endpoint is configured.</div>
+    </div>
+    <div class="pipe-connector">▼ &nbsp; segment → NodalFlow → Forge → Genesis → AXM Layer 2 journal shard (ML-DSA-44 signed)</div>
+    <div class="pipe-step">
+      <div class="pipe-label">
+        <div class="pipe-name">AXM Layer 2</div>
+        <div class="pipe-pkg">axm-genesis</div>
+      </div>
+      <div class="pipe-body">Journal shards sealed by Genesis. Full decision trace: what MPF was active, what tolerances were evaluated, what thresholds were crossed, what was certified. Verifiable by any party with the publisher key, decades later.</div>
+    </div>
+  </div>
+</section>
+
+<!-- §03 THREE LAYERS -->
+<section id="layers">
+  <div class="sec-hd">
+    <span class="sec-num">§ 03</span>
+    <h2>Three-Layer AXM Integration</h2>
+  </div>
+  <p>axm-sfn produces all three AXM layers. The protocol is identical across the ecosystem — fabrication shards use the same Genesis container format as chat, document, and robotics shards. The distinction is semantic.</p>
+  <table class="layer-table">
+    <thead>
+      <tr>
+        <th>Layer</th>
+        <th>AXM Type</th>
+        <th>axm-sfn Equivalent</th>
+        <th>Lifecycle</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td class="l1">
+          <div class="layer-num">Layer 1</div>
+          <div class="layer-name">Knowledge Shards</div>
+          <div class="layer-desc">Immutable reference</div>
+        </td>
+        <td style="color:var(--white-dim)">Compiled reference material. Merkle-covered. ML-DSA-44 signed. Never changes.</td>
+        <td style="color:var(--white-dim); font-family:var(--font-mono); font-size:12px">Material-Process Profile (MPF) shards<br><span style="color:var(--white-faint)">namespace: fabrication/mpf</span></td>
+        <td style="color:var(--white-dim); font-size:13px">Compiled once per standard version. Signed by AXM Foundation. Queried by axm-verify to confirm node certification.</td>
+      </tr>
+      <tr>
+        <td class="l2">
+          <div class="layer-num">Layer 2</div>
+          <div class="layer-name">Journal Shards</div>
+          <div class="layer-desc">Decision traces</div>
+        </td>
+        <td style="color:var(--white-dim)">What happened when knowledge shards were used. Full decision trace including rejections.</td>
+        <td style="color:var(--white-dim); font-family:var(--font-mono); font-size:12px">Production run records<br><span style="color:var(--white-faint)">namespace: fabrication/run</span></td>
+        <td style="color:var(--white-dim); font-size:13px">Compiled at session boundary (print end, or periodic seal trigger). Sealed by Forge + Genesis. Queryable: "what was the firmware hash on job 4821?"</td>
+      </tr>
+      <tr>
+        <td class="l3">
+          <div class="layer-num">Layer 3</div>
+          <div class="layer-name">Hot Buffer</div>
+          <div class="layer-desc">Working memory</div>
+        </td>
+        <td style="color:var(--white-dim)">Append-only. No cryptographic overhead. Nanosecond writes. Compiled into Layer 2 at seal trigger.</td>
+        <td style="color:var(--white-dim); font-family:var(--font-mono); font-size:12px">SQLite WAL hot buffer<br><span style="color:var(--white-faint)">/var/lib/axm-edge/buffer.db</span></td>
+        <td style="color:var(--white-dim); font-size:13px">Append-only during print. Survives power loss (WAL recovery on next boot). Genesis does NOT touch the hot buffer — seals only at session boundary.</td>
+      </tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- §04 STREAM FORMAT -->
+<section id="format">
+  <div class="sec-hd">
+    <span class="sec-num">§ 04</span>
+    <h2>AXLF / AXLR Binary Format</h2>
+  </div>
+  <p>The fabrication hot stream is the <strong>same</strong> format as axm-embodied — file <code>cam_latents.bin</code>, file magic <code>AXLF</code>, record magic <code>AXLR</code>. Because it adopts the embodied format verbatim, the frozen Genesis kernel validates REQ 5 frame continuity on fabrication shards with <strong>zero changes and no spoke-specific verifier</strong>. The spoke differs only in what the 256-byte payload means, not in the container or the continuity guarantee.</p>
+  <div class="format-grid">
+    <div class="fmt-panel">
+      <div class="fmt-title">AXLF — File Header (offset 0)</div>
+      <div class="byte-row"><span class="byte-off">0x00–0x03</span><span class="byte-name">AXLF magic</span><span class="byte-type">4 bytes</span></div>
+      <div class="byte-row"><span class="byte-off">0x04</span><span class="byte-name">version</span><span class="byte-type">uint8 = 1</span></div>
+      <div class="byte-row"><span class="byte-off">0x05–0x08</span><span class="byte-name">frame_id</span><span class="byte-type">uint32 LE</span></div>
+      <div class="byte-row"><span class="byte-off">0x09–0x0C</span><span class="byte-name">length</span><span class="byte-type">uint32 LE</span></div>
+    </div>
+    <div class="fmt-panel">
+      <div class="fmt-title">AXLR — Per-Frame Record</div>
+      <div class="byte-row"><span class="byte-off">+0x00–0x03</span><span class="byte-name">AXLR magic</span><span class="byte-type">4 bytes</span></div>
+      <div class="byte-row"><span class="byte-off">+0x04</span><span class="byte-name">version</span><span class="byte-type">uint8 = 1</span></div>
+      <div class="byte-row"><span class="byte-off">+0x05–0x08</span><span class="byte-name">frame_id</span><span class="byte-type">uint32 LE ↑</span></div>
+      <div class="byte-row"><span class="byte-off">+0x09–0x0C</span><span class="byte-name">length</span><span class="byte-type">uint32 LE</span></div>
+      <div class="byte-row"><span class="byte-off">+0x0D–…</span><span class="byte-name">payload</span><span class="byte-type">256 bytes</span></div>
+    </div>
+  </div>
+  <table class="compare">
+    <thead>
+      <tr><th>Field</th><th>axm-embodied</th><th>axm-sfn</th></tr>
+    </thead>
+    <tbody>
+      <tr><td class="field">File</td><td class="dim">cam_latents.bin</td><td class="teal">cam_latents.bin</td></tr>
+      <tr><td class="field">File magic</td><td class="dim">AXLF</td><td class="teal">AXLF</td></tr>
+      <tr><td class="field">Record magic</td><td class="dim">AXLR</td><td class="teal">AXLR</td></tr>
+      <tr><td class="field">Payload dim</td><td class="dim">256 (camera latent)</td><td class="teal">256 (fab telemetry)</td></tr>
+      <tr><td class="field">REQ 5 check</td><td class="dim">Genesis kernel</td><td class="teal">Genesis kernel</td></tr>
+      <tr><td class="field">On gap</td><td class="dim">E_BUFFER_DISCONTINUITY</td><td class="teal">E_BUFFER_DISCONTINUITY</td></tr>
+    </tbody>
+  </table>
+  <div class="callout">
+    <div class="callout-bar"></div>
+    <div class="callout-body">
+      <div class="callout-label">Offset Math</div>
+      <p>Record offset for frame N: <code>offset(N) = 4 + N × 269</code> &nbsp;(4-byte file header + N × 13-byte record header + 256-byte payload). Records are scanned linearly. No index. No random access. Any gap in the monotone <code>frame_id</code> sequence triggers verification failure.</p>
+    </div>
+  </div>
+</section>
+
+<!-- §05 POLICY ENGINE -->
+<section id="policy">
+  <div class="sec-hd">
+    <span class="sec-num">§ 05</span>
+    <h2>Material-Process Profile Engine</h2>
+  </div>
+  <p>The <code>internal/policy</code> engine evaluates each 1 Hz custody tick against a versioned Material-Process Profile (MPF). Rules map telemetry field names to mathematical envelopes. If no profile is loaded, the null policy passes everything — the daemon runs on any node.</p>
+
+  <div class="code-wrap">
+    <div class="code-hd">
+      <span class="code-title">schema/mpf/mat-asa-prosumer-v1.0.json — example MPF</span>
+      <span class="code-lang">json</span>
+    </div>
+<pre>{
+  <span class="kw">"profile_id"</span>: <span class="st">"mat-asa-prosumer-v1.0"</span>,
+  <span class="nm">"validation_rules"</span>: [
+    {
+      <span class="kw">"field"</span>: <span class="st">"extruder.temperature"</span>,
+      <span class="kw">"target_field"</span>: <span class="st">"extruder.target"</span>,
+      <span class="kw">"rule_type"</span>: <span class="st">"dynamic_offset"</span>,        <span class="cm">// actual must stay within ±ΔT of target</span>
+      <span class="kw">"max_negative_deviation"</span>: <span class="nm">5.0</span>,
+      <span class="kw">"max_positive_deviation"</span>: <span class="nm">10.0</span>,
+      <span class="kw">"allowed_consecutive_violation_epochs"</span>: <span class="nm">3</span>
+    },
+    {
+      <span class="kw">"field"</span>: <span class="st">"temperature_sensor.chamber.temperature"</span>,
+      <span class="kw">"rule_type"</span>: <span class="st">"absolute_minimum"</span>,
+      <span class="kw">"min_value"</span>: <span class="nm">90.0</span>,                         <span class="cm">// ASA requires enclosure ≥ 90°C</span>
+      <span class="kw">"allowed_total_violation_epochs"</span>: <span class="nm">15</span>
+    }
+  ]
+}</pre>
+  </div>
+
+  <div class="callout" style="margin-top:24px">
+    <div class="callout-bar"></div>
+    <div class="callout-body">
+      <div class="callout-label">Design: Flat Float Map</div>
+      <p>The packetizer extracts telemetry into a <code>map[string]float64</code> once per tick. No JSON Pointer parsing in the hot path. The policy engine iterates the flat map against the active profile's rules. Absent fields are skipped silently — printers without a chamber sensor pass chamber rules without error. Chamber temp is only added to the map when <code>ChamberPresent=true</code>, set by the first Moonraker delta that reports it.</p>
+    </div>
+  </div>
+</section>
+
+<!-- §06 TRACK STATUS -->
+<section id="conform">
+  <div class="sec-hd">
+    <span class="sec-num">§ 06</span>
+    <h2>Track Status</h2>
+  </div>
+  <p>Track 1 (the edge daemon) is complete and compiles. Track 2 (the certification standard) is in progress. The distinction matters: Track 1 is a working proof of custody. Track 2 is what makes custody economically meaningful.</p>
+  <table class="track-table">
+    <thead>
+      <tr><th>Track</th><th>Item</th><th>Status</th><th>Notes</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td rowspan="7" style="color:var(--teal);font-family:var(--font-disp);font-size:13px;font-weight:600;letter-spacing:0.06em;vertical-align:top;padding-top:18px">Track 1<br><span style="color:var(--white-faint);font-size:11px;font-weight:400">Edge Daemon</span></td>
+        <td><div class="track-item">Moonraker WebSocket client</div><div class="track-desc">JSON-RPC 2.0 with reconnect, subscribe, initial snapshot</div></td>
+        <td><span class="done">✓ done</span></td>
+        <td style="font-size:12px;color:var(--white-faint)">internal/moonraker</td>
+      </tr>
+      <tr>
+        <td><div class="track-item">1 Hz custody clock</div><div class="track-desc">REQ 5 custody packetizer, provenance fault recording</div></td>
+        <td><span class="done">✓ done</span></td>
+        <td style="font-size:12px;color:var(--white-faint)">internal/custody</td>
+      </tr>
+      <tr>
+        <td><div class="track-item">SQLite WAL hot buffer</div><div class="track-desc">Append-only, power-loss safe, provenance fault table</div></td>
+        <td><span class="done">✓ done</span></td>
+        <td style="font-size:12px;color:var(--white-faint)">internal/hotbuffer</td>
+      </tr>
+      <tr>
+        <td><div class="track-item">TPM 2.0 Sign + Quote worker</div><div class="track-desc">RSA-PSS per-packet sign, PCR quote with derived nonce</div></td>
+        <td><span class="done">✓ done</span></td>
+        <td style="font-size:12px;color:var(--white-faint)">internal/tpm</td>
+      </tr>
+      <tr>
+        <td><div class="track-item">BLAKE3 chain + Merkle uploader</div><div class="track-desc">RFC 6962 odd-leaf Merkle, stdout fallback for dev</div></td>
+        <td><span class="done">✓ done</span></td>
+        <td style="font-size:12px;color:var(--white-faint)">internal/uploader</td>
+      </tr>
+      <tr>
+        <td><div class="track-item">Policy engine skeleton</div><div class="track-desc">Flat float map evaluator, null policy passes everything</div></td>
+        <td><span class="done">✓ done</span></td>
+        <td style="font-size:12px;color:var(--white-faint)">internal/policy</td>
+      </tr>
+      <tr>
+        <td><div class="track-item">Unit tests</div><div class="track-desc">15 tests across policy engine and Merkle uploader</div></td>
+        <td><span class="done">✓ done</span></td>
+        <td style="font-size:12px;color:var(--white-faint)">go test ./...</td>
+      </tr>
+      <tr>
+        <td rowspan="5" style="color:#6a8ab8;font-family:var(--font-disp);font-size:13px;font-weight:600;letter-spacing:0.06em;vertical-align:top;padding-top:18px;border-top:1px solid var(--rule-strong)">Track 2<br><span style="color:var(--white-faint);font-size:11px;font-weight:400">Certification</span></td>
+        <td style="border-top:1px solid var(--rule-strong)"><div class="track-item">MPF schema v1</div><div class="track-desc">JSON Schema + candidates.jsonl pipeline → signed Layer 1 shard</div></td>
+        <td><span class="open">○ open</span></td>
+        <td style="font-size:12px;color:var(--white-faint)">schema/mpf/</td>
+      </tr>
+      <tr>
+        <td><div class="track-item">Cryptographic tolerance definitions</div><div class="track-desc">ΔT extruder, flow variance, motion fidelity thresholds</div></td>
+        <td><span class="open">○ open</span></td>
+        <td style="font-size:12px;color:var(--white-faint)">Track 2.2</td>
+      </tr>
+      <tr>
+        <td><div class="track-item">NIST challenge artifact integration</div><div class="track-desc">Calibration run flag, post-print metrology → shard supersession</div></td>
+        <td><span class="open">○ open</span></td>
+        <td style="font-size:12px;color:var(--white-faint)">Track 2.3</td>
+      </tr>
+      <tr>
+        <td><div class="track-item">cam_latents.bin serializer (AXLF/AXLR)</div><div class="track-desc">CustodyPacket → embodied stream format; REQ 5 enforced by the frozen Genesis kernel, no spoke verifier</div></td>
+        <td><span class="open">○ open</span></td>
+        <td style="font-size:12px;color:var(--white-faint)">docs/STREAM_FORMAT.md</td>
+      </tr>
+      <tr>
+        <td><div class="track-item">Certification README</div><div class="track-desc">How nodes get onto an approved vendor list</div></td>
+        <td><span class="open">○ open</span></td>
+        <td style="font-size:12px;color:var(--white-faint)">certification/</td>
+      </tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- §07 QUICK START -->
+<section id="start">
+  <div class="sec-hd">
+    <span class="sec-num">§ 07</span>
+    <h2>Quick Start</h2>
+  </div>
+  <div class="terminal">
+    <div class="term-hd">
+      <div class="term-dot r"></div>
+      <div class="term-dot y"></div>
+      <div class="term-dot g"></div>
+      <span class="term-title">Build + Run</span>
+    </div>
+    <div class="term-body">
+      <div><span class="comment"># Clone and build</span></div>
+      <div><span class="prompt">$ </span><span class="cmd">git clone https://github.com/BigBirdReturns/<span class="arg">axm-sfn</span></span></div>
+      <div><span class="prompt">$ </span><span class="cmd">cd axm-sfn && go mod tidy && go build <span class="arg">./cmd/axm-edge/</span></span></div>
+      <div>&nbsp;</div>
+      <div><span class="comment"># Provision TPM keys (run once — requires tss group membership)</span></div>
+      <div><span class="prompt">$ </span><span class="cmd">sudo ./axm-edge provision --config <span class="arg">config.example.yaml</span></span></div>
+      <div><span class="out">axm-edge: provisioning TPM keys device=/dev/tpmrm0</span></div>
+      <div><span class="out">axm-edge: persistent keys verified sign=0x81000001 ak=0x81000002</span></div>
+      <div>&nbsp;</div>
+      <div><span class="comment"># Run in dev mode (stdout segments, no NodalFlow required)</span></div>
+      <div><span class="prompt">$ </span><span class="cmd">./axm-edge run --config <span class="arg">config.example.yaml</span></span></div>
+      <div><span class="out">level=INFO msg="axm-edge daemon starting" node_label=sfn-node-001</span></div>
+      <div><span class="out">level=INFO msg="moonraker: connected" endpoint=ws://127.0.0.1:7125/websocket</span></div>
+      <div><span class="out">level=INFO msg="custody: print state transition" from=standby to=printing</span></div>
+      <div><span class="out">level=INFO msg="custody: new session started" session_id=a3f8c2d1...</span></div>
+      <div><span class="out-ok">level=INFO msg="uploader: segment (stdout)" seq_start=0 seq_end=59 packets=60</span></div>
+    </div>
+  </div>
+
+  <div class="terminal" style="margin-top:16px">
+    <div class="term-hd">
+      <div class="term-dot r"></div>
+      <div class="term-dot y"></div>
+      <div class="term-dot g"></div>
+      <span class="term-title">Tests</span>
+    </div>
+    <div class="term-body">
+      <div><span class="comment"># Run the test suite</span></div>
+      <div><span class="prompt">$ </span><span class="cmd">go test <span class="arg">./...</span> -v</span></div>
+      <div><span class="out">--- PASS: TestNullPolicyPassesEverything (0.00s)</span></div>
+      <div><span class="out">--- PASS: TestDynamicOffsetPass (0.00s)</span></div>
+      <div><span class="out">--- PASS: TestDynamicOffsetFail (0.00s)</span></div>
+      <div><span class="out">--- PASS: TestConsecutiveViolationGrace (0.00s)</span></div>
+      <div><span class="out">--- PASS: TestMerkleRootEmptyIsConstant (0.00s)</span></div>
+      <div><span class="out">--- PASS: TestMerkleRootOddLeafPromotion (0.00s)</span></div>
+      <div><span class="out-ok">ok  github.com/bigbirdreturns/axm-sfn/internal/policy &nbsp; 0.012s</span></div>
+      <div><span class="out-ok">ok  github.com/bigbirdreturns/axm-sfn/internal/uploader &nbsp; 0.009s</span></div>
+    </div>
+  </div>
+
+  <div class="callout" style="margin-top:24px">
+    <div class="callout-bar"></div>
+    <div class="callout-body">
+      <div class="callout-label">TPM Not Required for Development</div>
+      <p>If <code>/dev/tpmrm0</code> is absent, axm-edge runs in software-only mode. Packets are hashed and chained but not TPM-signed. The hot buffer and custody loop function normally. The daemon logs <code>TPM unavailable — running without hardware attestation</code> and continues. This makes development on any Linux machine possible without a physical TPM.</p>
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div class="foot-left">
+    <div><strong>axm-sfn</strong> v0.1 · AGPL-3.0</div>
+    <div>AXM Embodied Spoke · Fabrication Node</div>
+    <div>Track 1 complete · Track 2 in progress</div>
+  </div>
+  <div class="foot-links">
+    <a href="https://github.com/BigBirdReturns/axm-sfn">GitHub</a>
+    <a href="https://bigbirdreturns.github.io/axm-genesis/">Genesis</a>
+    <a href="https://bigbirdreturns.github.io/axm-embodied/">Embodied</a>
+    <a href="#start">Quick Start</a>
+  </div>
+</footer>
+
+<script>
+// Scroll-tracking nav
+(function(){
+  const links = document.querySelectorAll('#main-nav a[data-section]');
+  const sections = Array.from(document.querySelectorAll('section[id]'));
+  const navH = document.getElementById('main-nav').offsetHeight + 36;
+
+  function update(){
+    let cur = sections[0]?.id;
+    for (const s of sections){
+      if (s.getBoundingClientRect().top <= navH + 32) cur = s.id;
+    }
+    links.forEach(a => a.classList.toggle('active', a.dataset.section === cur));
+  }
+  window.addEventListener('scroll', update, {passive:true});
+  update();
+})();
+</script>
+
+</body>
+</html>

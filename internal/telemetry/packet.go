@@ -1,10 +1,10 @@
-// Package telemetry defines the canonical EpochPacket and Segment types
+// Package telemetry defines the canonical CustodyPacket and Segment types
 // for the axm-sfn fabrication node.
 package telemetry
 
 import "time"
 
-// EpochPacket is one second of fabrication telemetry, sealed into the
+// CustodyPacket is one second of fabrication telemetry, sealed into the
 // BLAKE3 chain. Fields are JSON-tagged for deterministic canonical
 // serialization. The zero value for numeric fields means "not observed."
 //
@@ -12,7 +12,7 @@ import "time"
 // encoding/json with struct field order — Go's encoder is deterministic
 // for a given struct layout. Do not reorder fields without bumping the
 // packet format version.
-type EpochPacket struct {
+type CustodyPacket struct {
 	// ── Identity ──────────────────────────────────────────────────────────
 	SessionID string `json:"session_id"`
 	NodeLabel string `json:"node_label"`
@@ -47,10 +47,10 @@ type EpochPacket struct {
 	MCUVersion       string `json:"mcu_version"`
 	MCUBuildVersions string `json:"mcu_build_versions"`
 
-	// ── Policy verdict (replaces hardcoded anomaly flags) ─────────────────
-	// Populated by internal/policy.Engine.Evaluate() before hashing.
+	// ── Policy decision (replaces hardcoded anomaly flags) ────────────────
+	// Populated by internal/policy.Evaluator.Evaluate() before hashing.
 	// Null/absent means no active profile — passes silently.
-	PolicyVerdict *PolicyVerdict `json:"policy_verdict,omitempty"`
+	Decision *Decision `json:"decision,omitempty"`
 
 	// ── Anomaly flags (deprecated — kept for wire compat during migration) ─
 	// TODO: remove after policy engine is wired in (Track 2.2)
@@ -69,16 +69,16 @@ type EpochPacket struct {
 	QuoteRef         int64  `json:"quote_ref,omitempty"`
 }
 
-// PolicyVerdict is the output of the policy engine for one epoch.
+// Decision is the output of the policy evaluator for one custody tick.
 // Pass=true means all active rules were satisfied.
-type PolicyVerdict struct {
+type Decision struct {
 	Pass       bool     `json:"pass"`
 	ProfileID  string   `json:"profile_id"`
 	Violations []string `json:"violations,omitempty"`
 }
 
-// Segment is a BLAKE3 Merkle batch of EpochPackets, ready for upload
-// to the NodalFlow routing layer.
+// Segment is a BLAKE3 Merkle batch of CustodyPackets, ready for upload
+// to the NodalFlow ingest endpoint.
 type Segment struct {
 	SessionID   string `json:"session_id"`
 	NodeLabel   string `json:"node_label"`

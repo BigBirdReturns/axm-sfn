@@ -1,5 +1,5 @@
-// Package uploader batches epoch packets from the trust buffer into
-// BLAKE3 Merkle segments and ships them to the NodalFlow routing layer.
+// Package uploader batches custody packets from the hot buffer into
+// BLAKE3 Merkle segments and ships them to the NodalFlow ingest endpoint.
 //
 // Current implementation: if Endpoint is empty or unreachable, segments
 // are logged to stdout as JSON. This keeps the daemon runnable without
@@ -18,7 +18,7 @@ import (
 
 	"github.com/zeebo/blake3"
 
-	"github.com/bigbirdreturns/axm-sfn/internal/trustbuffer"
+	"github.com/bigbirdreturns/axm-sfn/internal/hotbuffer"
 )
 
 // Uploader reads pending segments from the trust buffer and ships them
@@ -27,13 +27,13 @@ type Uploader struct {
 	endpoint      string
 	batchSize     int
 	retryInterval time.Duration
-	buf           *trustbuffer.Buffer
+	buf           *hotbuffer.Buffer
 	log           *slog.Logger
 	client        *http.Client
 }
 
 // New creates an Uploader. buf must already be open.
-func New(endpoint string, batchSize int, retryInterval time.Duration, buf *trustbuffer.Buffer, log *slog.Logger) *Uploader {
+func New(endpoint string, batchSize int, retryInterval time.Duration, buf *hotbuffer.Buffer, log *slog.Logger) *Uploader {
 	return &Uploader{
 		endpoint:      endpoint,
 		batchSize:     batchSize,

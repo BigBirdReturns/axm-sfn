@@ -9,12 +9,12 @@ moonraker:
   client_version: "0.1.0"
   reconnect_delay: "5s"
 
-epoch:
+custody:
   period: "1s"
   max_silent_ticks: 10             # provenance fault after 10s of printer silence
 
-trust_buffer:
-  db_path: "/var/lib/axm-edge/trust.db"
+hot_buffer:
+  db_path: "/var/lib/axm-edge/buffer.db"
 
 tpm:
   device: "/dev/tpmrm0"
@@ -26,5 +26,5 @@ tpm:
 
 uploader:
   endpoint: ""                     # leave empty to log segments to stdout (dev mode)
-  batch_size: 60                   # 60 epochs = 1 minute per segment
+  batch_size: 60                   # 60 custody ticks = 1 minute per segment
   retry_interval: "30s"
