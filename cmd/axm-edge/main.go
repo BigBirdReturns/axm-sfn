@@ -18,11 +18,11 @@ import (
 	"os/signal"
 	"syscall"
 
-	moonclient "github.com/bigbirdreturns/axm-sfn/internal/moonraker"
 	"github.com/bigbirdreturns/axm-sfn/internal/config"
-	"github.com/bigbirdreturns/axm-sfn/internal/epoch"
+	"github.com/bigbirdreturns/axm-sfn/internal/custody"
+	"github.com/bigbirdreturns/axm-sfn/internal/hotbuffer"
+	moonclient "github.com/bigbirdreturns/axm-sfn/internal/moonraker"
 	tpmworker "github.com/bigbirdreturns/axm-sfn/internal/tpm"
-	"github.com/bigbirdreturns/axm-sfn/internal/trustbuffer"
 	"github.com/bigbirdreturns/axm-sfn/internal/uploader"
 )
 
@@ -77,11 +77,11 @@ func runDaemon(cfg config.Config, log *slog.Logger) error {
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGTERM, os.Interrupt)
 	defer cancel()
 
-	// ── Trust Buffer ────────────────────────────────────────────────────────
-	log.Info("opening trust buffer", "path", cfg.TrustBuffer.DBPath)
-	buf, err := trustbuffer.Open(cfg.TrustBuffer.DBPath, log)
+	// ── Hot Buffer ──────────────────────────────────────────────────────────
+	log.Info("opening hot buffer", "path", cfg.HotBuffer.DBPath)
+	buf, err := hotbuffer.Open(cfg.HotBuffer.DBPath, log)
 	if err != nil {
-		return fmt.Errorf("trust buffer: %w", err)
+		return fmt.Errorf("hot buffer: %w", err)
 	}
 	defer buf.Close()
 
@@ -118,12 +118,12 @@ func runDaemon(cfg config.Config, log *slog.Logger) error {
 		log,
 	)
 
-	// ── Epoch Packetizer ───────────────────────────────────────────────────
-	pktz := epoch.NewPacketizer(epoch.Config{
+	// ── Custody Packetizer ──────────────────────────────────────────────────
+	pktz := custody.NewPacketizer(custody.Config{
 		NodeLabel:        cfg.Session.NodeLabel,
 		PrinterID:        cfg.Session.PrinterID,
-		EpochPeriod:      cfg.Epoch.Period,
-		MaxSilentTicks:   cfg.Epoch.MaxSilentTicks,
+		Period:           cfg.Custody.Period,
+		MaxSilentTicks:   cfg.Custody.MaxSilentTicks,
 		QuoteInterval:    cfg.TPM.QuoteInterval,
 		QuoteOnLifecycle: cfg.TPM.QuoteOnLifecycleEdge,
 		PCRs:             cfg.TPM.PCRs,

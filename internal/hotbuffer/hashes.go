@@ -1,4 +1,4 @@
-package trustbuffer
+package hotbuffer
 
 import (
 	"context"
@@ -27,7 +27,7 @@ func (b *Buffer) PacketHashes(ctx context.Context, rowIDs []int64) ([][]byte, er
 
 	rows, err := b.db.QueryContext(ctx, query, placeholders...)
 	if err != nil {
-		return nil, fmt.Errorf("trustbuffer: packet hashes: %w", err)
+		return nil, fmt.Errorf("hotbuffer: packet hashes: %w", err)
 	}
 	defer rows.Close()
 
@@ -41,7 +41,7 @@ func (b *Buffer) PacketHashes(ctx context.Context, rowIDs []int64) ([][]byte, er
 		if hashHex != nil {
 			decoded, err := hex.DecodeString(*hashHex)
 			if err != nil {
-				return nil, fmt.Errorf("trustbuffer: decode blake3 hash for row %d: %w", id, err)
+				return nil, fmt.Errorf("hotbuffer: decode blake3 hash for row %d: %w", id, err)
 			}
 			hashByID[id] = decoded
 		}

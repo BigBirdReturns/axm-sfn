@@ -11,7 +11,7 @@ import (
 var testLog = slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError}))
 
 func TestNullPolicyPassesEverything(t *testing.T) {
-	e := policy.NewEngine(testLog)
+	e := policy.NewEvaluator(testLog)
 	telemetry := map[string]float64{
 		"extruder.temperature": 400.0, // wildly out of range
 		"extruder.target":      200.0,
@@ -26,7 +26,7 @@ func TestNullPolicyPassesEverything(t *testing.T) {
 }
 
 func TestDynamicOffsetPass(t *testing.T) {
-	e := policy.NewEngine(testLog)
+	e := policy.NewEvaluator(testLog)
 	profile := []byte(`{
 		"profile_id": "test-v1",
 		"validation_rules": [{
@@ -52,7 +52,7 @@ func TestDynamicOffsetPass(t *testing.T) {
 }
 
 func TestDynamicOffsetFail(t *testing.T) {
-	e := policy.NewEngine(testLog)
+	e := policy.NewEvaluator(testLog)
 	profile := []byte(`{
 		"profile_id": "test-v1",
 		"validation_rules": [{
@@ -82,7 +82,7 @@ func TestDynamicOffsetFail(t *testing.T) {
 }
 
 func TestAbsoluteMinimumPass(t *testing.T) {
-	e := policy.NewEngine(testLog)
+	e := policy.NewEvaluator(testLog)
 	profile := []byte(`{
 		"profile_id": "test-v1",
 		"validation_rules": [{
@@ -104,7 +104,7 @@ func TestAbsoluteMinimumPass(t *testing.T) {
 }
 
 func TestAbsoluteMinimumFail(t *testing.T) {
-	e := policy.NewEngine(testLog)
+	e := policy.NewEvaluator(testLog)
 	profile := []byte(`{
 		"profile_id": "test-v1",
 		"validation_rules": [{
@@ -127,7 +127,7 @@ func TestAbsoluteMinimumFail(t *testing.T) {
 }
 
 func TestAbsentFieldSkippedSilently(t *testing.T) {
-	e := policy.NewEngine(testLog)
+	e := policy.NewEvaluator(testLog)
 	profile := []byte(`{
 		"profile_id": "test-v1",
 		"validation_rules": [{
@@ -150,7 +150,7 @@ func TestAbsentFieldSkippedSilently(t *testing.T) {
 }
 
 func TestConsecutiveViolationGrace(t *testing.T) {
-	e := policy.NewEngine(testLog)
+	e := policy.NewEvaluator(testLog)
 	profile := []byte(`{
 		"profile_id": "test-v1",
 		"validation_rules": [{
@@ -175,19 +175,19 @@ func TestConsecutiveViolationGrace(t *testing.T) {
 	for i := 1; i <= 3; i++ {
 		v := e.Evaluate(badTelemetry)
 		if !v.Pass {
-			t.Fatalf("epoch %d: expected grace pass, got violations: %v", i, v.Violations)
+			t.Fatalf("tick %d: expected grace pass, got violations: %v", i, v.Violations)
 		}
 	}
 
 	// Epoch 4: grace exhausted, should fail
 	v := e.Evaluate(badTelemetry)
 	if v.Pass {
-		t.Fatal("epoch 4: expected fail after grace exhausted")
+		t.Fatal("tick 4: expected fail after grace exhausted")
 	}
 }
 
 func TestClearProfileRestoresNullPolicy(t *testing.T) {
-	e := policy.NewEngine(testLog)
+	e := policy.NewEvaluator(testLog)
 	profile := []byte(`{
 		"profile_id": "test-v1",
 		"validation_rules": [{
@@ -215,28 +215,28 @@ func TestClearProfileRestoresNullPolicy(t *testing.T) {
 	}
 }
 
-func TestTelemetryFromEpoch(t *testing.T) {
-	m := policy.TelemetryFromEpoch(
+func TestTelemetryFromCustody(t *testing.T) {
+	m := policy.TelemetryFromCustody(
 		240.0, 240.0, 0.8,
 		110.0, 110.0, 0.6,
 		150.0, 5.0,
 		95.0, true,
 	)
 	checks := map[string]float64{
-		"extruder.temperature":                     240.0,
-		"extruder.target":                          240.0,
-		"heater_bed.temperature":                   110.0,
-		"temperature_sensor.chamber.temperature":   95.0,
+		"extruder.temperature":                   240.0,
+		"extruder.target":                        240.0,
+		"heater_bed.temperature":                 110.0,
+		"temperature_sensor.chamber.temperature": 95.0,
 	}
 	for k, want := range checks {
 		if got := m[k]; got != want {
-			t.Errorf("TelemetryFromEpoch[%q] = %v, want %v", k, got, want)
+			t.Errorf("TelemetryFromCustody[%q] = %v, want %v", k, got, want)
 		}
 	}
 }
 
-func TestTelemetryFromEpochNoChamber(t *testing.T) {
-	m := policy.TelemetryFromEpoch(
+func TestTelemetryFromCustodyNoChamber(t *testing.T) {
+	m := policy.TelemetryFromCustody(
 		240.0, 240.0, 0.8,
 		110.0, 110.0, 0.6,
 		150.0, 5.0,
@@ -248,14 +248,14 @@ func TestTelemetryFromEpochNoChamber(t *testing.T) {
 }
 
 func TestLoadProfileRejectsEmptyID(t *testing.T) {
-	e := policy.NewEngine(testLog)
+	e := policy.NewEvaluator(testLog)
 	if err := e.LoadProfile([]byte(`{"profile_id": "", "validation_rules": []}`)); err == nil {
 		t.Fatal("expected error for empty profile_id")
 	}
 }
 
 func TestLoadProfileRejectsInvalidJSON(t *testing.T) {
-	e := policy.NewEngine(testLog)
+	e := policy.NewEvaluator(testLog)
 	if err := e.LoadProfile([]byte(`not json`)); err == nil {
 		t.Fatal("expected error for invalid JSON")
 	}

@@ -1,11 +1,11 @@
 // Package policy implements the Material-Process Profile evaluator.
 //
-// The engine evaluates each 1Hz epoch against a set of validation rules
+// The evaluator runs each 1Hz custody tick against a set of validation rules
 // defined in the active MPF (Material-Process Profile). Rules map
 // telemetry field names to mathematical envelopes (absolute thresholds,
 // dynamic offsets from a target field).
 //
-// If no profile is loaded, Evaluate returns a passing verdict — the null
+// If no profile is loaded, Evaluate returns a passing decision — the null
 // policy passes everything. This preserves daemon operation on nodes that
 // haven't been assigned an MPF yet.
 //
@@ -37,35 +37,35 @@ type Profile struct {
 //   - "dynamic_offset":   value must be within [target+MaxNegDev, target+MaxPosDev]
 //     where target is read from TargetField in the same telemetry map
 type ValidationRule struct {
-	Field                          string  `json:"field"`                                      // key in the flat telemetry map
-	TargetField                    string  `json:"target_field,omitempty"`                     // for dynamic_offset
-	RuleType                       string  `json:"rule_type"`                                  // see above
-	MinValue                       float64 `json:"min_value,omitempty"`
-	MaxValue                       float64 `json:"max_value,omitempty"`
-	MaxNegativeDev                 float64 `json:"max_negative_deviation,omitempty"`
-	MaxPositiveDev                 float64 `json:"max_positive_deviation,omitempty"`
-	AllowedConsecutiveViolations   int     `json:"allowed_consecutive_violation_epochs,omitempty"`
-	AllowedTotalViolations         int     `json:"allowed_total_violation_epochs,omitempty"`
+	Field                        string  `json:"field"`                  // key in the flat telemetry map
+	TargetField                  string  `json:"target_field,omitempty"` // for dynamic_offset
+	RuleType                     string  `json:"rule_type"`              // see above
+	MinValue                     float64 `json:"min_value,omitempty"`
+	MaxValue                     float64 `json:"max_value,omitempty"`
+	MaxNegativeDev               float64 `json:"max_negative_deviation,omitempty"`
+	MaxPositiveDev               float64 `json:"max_positive_deviation,omitempty"`
+	AllowedConsecutiveViolations int     `json:"allowed_consecutive_violation_epochs,omitempty"`
+	AllowedTotalViolations       int     `json:"allowed_total_violation_epochs,omitempty"`
 }
 
-// Verdict is the per-epoch policy result.
-type Verdict struct {
+// Decision is the per-tick policy result.
+type Decision struct {
 	Pass       bool     `json:"pass"`
 	ProfileID  string   `json:"profile_id"`
 	Violations []string `json:"violations,omitempty"`
 }
 
-// Engine evaluates epochs against a loaded Profile.
-type Engine struct {
+// Evaluator evaluates custody ticks against a loaded Profile.
+type Evaluator struct {
 	profile     *Profile
 	consecutive map[string]int // consecutive violation counts per rule field
 	total       map[string]int // total violation counts per rule field
 	log         *slog.Logger
 }
 
-// NewEngine creates an Engine with no active profile (null policy).
-func NewEngine(log *slog.Logger) *Engine {
-	return &Engine{
+// NewEvaluator creates an Evaluator with no active profile (null policy).
+func NewEvaluator(log *slog.Logger) *Evaluator {
+	return &Evaluator{
 		consecutive: make(map[string]int),
 		total:       make(map[string]int),
 		log:         log,
@@ -74,7 +74,7 @@ func NewEngine(log *slog.Logger) *Engine {
 
 // LoadProfile replaces the active profile and resets all violation counters.
 // profileJSON must be a valid MPF JSON document.
-func (e *Engine) LoadProfile(profileJSON []byte) error {
+func (e *Evaluator) LoadProfile(profileJSON []byte) error {
 	var p Profile
 	if err := json.Unmarshal(profileJSON, &p); err != nil {
 		return fmt.Errorf("policy: parse profile: %w", err)
@@ -89,8 +89,8 @@ func (e *Engine) LoadProfile(profileJSON []byte) error {
 	return nil
 }
 
-// ClearProfile unloads the active profile (null policy — all epochs pass).
-func (e *Engine) ClearProfile() {
+// ClearProfile unloads the active profile (null policy — all custody ticks pass).
+func (e *Evaluator) ClearProfile() {
 	e.profile = nil
 	e.consecutive = make(map[string]int)
 	e.total = make(map[string]int)
@@ -98,10 +98,10 @@ func (e *Engine) ClearProfile() {
 
 // Evaluate runs the active profile against the flat telemetry snapshot.
 // telemetry is a map[string]float64 with keys matching ValidationRule.Field.
-// If no profile is loaded, returns a passing verdict.
-func (e *Engine) Evaluate(telemetry map[string]float64) Verdict {
+// If no profile is loaded, returns a passing decision.
+func (e *Evaluator) Evaluate(telemetry map[string]float64) Decision {
 	if e.profile == nil {
-		return Verdict{Pass: true, ProfileID: "null"}
+		return Decision{Pass: true, ProfileID: "null"}
 	}
 
 	var violations []string
@@ -162,30 +162,30 @@ func (e *Engine) Evaluate(telemetry map[string]float64) Verdict {
 		}
 	}
 
-	return Verdict{
+	return Decision{
 		Pass:       len(violations) == 0,
 		ProfileID:  e.profile.ProfileID,
 		Violations: violations,
 	}
 }
 
-// TelemetryFromEpoch extracts the flat float map from the fields the
+// TelemetryFromCustody extracts the flat float map from the fields the
 // packetizer captures. Add fields here as new sensors are supported.
 // chamberTemp is only included in the map if chamberPresent is true.
-func TelemetryFromEpoch(
+func TelemetryFromCustody(
 	extruderTemp, extruderTarget, extruderPower float64,
 	bedTemp, bedTarget, bedPower float64,
 	liveVelocity, liveExtruderVelocity float64,
 	chamberTemp float64, chamberPresent bool,
 ) map[string]float64 {
 	m := map[string]float64{
-		"extruder.temperature":                extruderTemp,
-		"extruder.target":                     extruderTarget,
-		"extruder.power":                      extruderPower,
-		"heater_bed.temperature":              bedTemp,
-		"heater_bed.target":                   bedTarget,
-		"heater_bed.power":                    bedPower,
-		"motion_report.live_velocity":         liveVelocity,
+		"extruder.temperature":                 extruderTemp,
+		"extruder.target":                      extruderTarget,
+		"extruder.power":                       extruderPower,
+		"heater_bed.temperature":               bedTemp,
+		"heater_bed.target":                    bedTarget,
+		"heater_bed.power":                     bedPower,
+		"motion_report.live_velocity":          liveVelocity,
 		"motion_report.live_extruder_velocity": liveExtruderVelocity,
 	}
 	if chamberPresent {

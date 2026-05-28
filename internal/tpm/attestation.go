@@ -31,11 +31,11 @@ import (
 
 // Worker manages a single TPM device connection and exposes Sign and Quote.
 // It is not safe for concurrent use from multiple goroutines; the caller
-// (epoch packetizer or a dedicated TPM goroutine) must serialize access.
+// (custody packetizer or a dedicated TPM goroutine) must serialize access.
 type Worker struct {
-	dev    io.ReadWriteCloser
-	log    *slog.Logger
-	cfg    Config
+	dev     io.ReadWriteCloser
+	log     *slog.Logger
+	cfg     Config
 	signKey tpm2.AuthHandle
 	akKey   tpm2.AuthHandle
 }
@@ -270,8 +270,8 @@ func createPersistentRSAPSSKey(t transport.TPM, handle uint32) error {
 	defer tpm2.FlushContext{FlushHandle: resp.ObjectHandle}.Execute(t)
 
 	persist := tpm2.EvictControl{
-		Auth:        tpm2.TPMRHOwner,
-		ObjectHandle: resp.ObjectHandle,
+		Auth:             tpm2.TPMRHOwner,
+		ObjectHandle:     resp.ObjectHandle,
 		PersistentHandle: tpm2.TPMHandle(handle),
 	}
 	_, err = persist.Execute(t)
@@ -311,8 +311,8 @@ func createPersistentAK(t transport.TPM, handle uint32) error {
 	defer tpm2.FlushContext{FlushHandle: resp.ObjectHandle}.Execute(t)
 
 	persist := tpm2.EvictControl{
-		Auth:        tpm2.TPMRHOwner,
-		ObjectHandle: resp.ObjectHandle,
+		Auth:             tpm2.TPMRHOwner,
+		ObjectHandle:     resp.ObjectHandle,
 		PersistentHandle: tpm2.TPMHandle(handle),
 	}
 	_, err = persist.Execute(t)

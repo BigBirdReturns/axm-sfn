@@ -1,14 +1,14 @@
-// Package trustbuffer implements the local append-only SQLite WAL custody ledger.
+// Package hotbuffer implements the local append-only SQLite WAL custody ledger.
 //
 // Design invariants:
-//   - Writer (epoch packetizer) is the only goroutine that INSERTs into packets.
+//   - Writer (custody packetizer) is the only goroutine that INSERTs into packets.
 //   - TPM worker UPDATEs packets with tpm_sig after signing.
 //   - Uploader reads contiguous pending ranges and UPDATEs upload_state.
 //   - WAL mode: readers never block the writer; checkpoint runs separately.
 //
 // The buffer is the local analogue of AXM REQ 5: a gap in seq during a
 // printing session is a provenance fault, regardless of ledger availability.
-package trustbuffer
+package hotbuffer
 
 import (
 	"context"
@@ -46,7 +46,7 @@ func Open(dbPath string, log *slog.Logger) (*Buffer, error) {
 	dsn := fmt.Sprintf("file:%s?_journal_mode=WAL&_synchronous=NORMAL&_foreign_keys=ON&_busy_timeout=5000", dbPath)
 	db, err := sql.Open(driverName, dsn)
 	if err != nil {
-		return nil, fmt.Errorf("trustbuffer: open %s: %w", dbPath, err)
+		return nil, fmt.Errorf("hotbuffer: open %s: %w", dbPath, err)
 	}
 	// Limit to one writer connection to avoid WAL contention; readers can share.
 	db.SetMaxOpenConns(4)
@@ -55,7 +55,7 @@ func Open(dbPath string, log *slog.Logger) (*Buffer, error) {
 	b := &Buffer{db: db, log: log}
 	if err := b.migrate(); err != nil {
 		db.Close()
-		return nil, fmt.Errorf("trustbuffer: migrate: %w", err)
+		return nil, fmt.Errorf("hotbuffer: migrate: %w", err)
 	}
 	return b, nil
 }
@@ -145,21 +145,21 @@ func (b *Buffer) migrate() error {
 
 // PacketRow is the data passed to WritePacket.
 type PacketRow struct {
-	SessionID           string
-	Seq                 uint64
-	TickUTC             time.Time
-	TickMonoNs          int64
-	TelemetryJSON       []byte // canonical JSON of the full EpochPacket (without TPM fields)
-	AnomalyExtruder     bool
-	AnomalyBed          bool
-	AnomalyLoadCell     bool
-	RecoveredFromCache  bool
-	PrevPacketBLAKE3    []byte
-	PacketSHA256        []byte
-	PacketBLAKE3        []byte
+	SessionID          string
+	Seq                uint64
+	TickUTC            time.Time
+	TickMonoNs         int64
+	TelemetryJSON      []byte // canonical JSON of the full CustodyPacket (without TPM fields)
+	AnomalyExtruder    bool
+	AnomalyBed         bool
+	AnomalyLoadCell    bool
+	RecoveredFromCache bool
+	PrevPacketBLAKE3   []byte
+	PacketSHA256       []byte
+	PacketBLAKE3       []byte
 }
 
-// WritePacket appends a new epoch packet to the buffer.
+// WritePacket appends a new custody packet to the buffer.
 // Returns the rowid of the inserted packet.
 func (b *Buffer) WritePacket(ctx context.Context, p PacketRow) (int64, error) {
 	res, err := b.db.ExecContext(ctx, `
@@ -184,7 +184,7 @@ func (b *Buffer) WritePacket(ctx context.Context, p PacketRow) (int64, error) {
 		hexOrNil(p.PacketBLAKE3),
 	)
 	if err != nil {
-		return 0, fmt.Errorf("trustbuffer: write packet seq=%d: %w", p.Seq, err)
+		return 0, fmt.Errorf("hotbuffer: write packet seq=%d: %w", p.Seq, err)
 	}
 	return res.LastInsertId()
 }
@@ -199,7 +199,7 @@ func (b *Buffer) SetTPMSig(ctx context.Context, rowID int64, tpmSig []byte, quot
 	return err
 }
 
-// RecordProvenanceFault persists a continuity fault (missing epoch, bad chain, etc.).
+// RecordProvenanceFault persists a continuity fault (missing custody tick, bad chain, etc.).
 func (b *Buffer) RecordProvenanceFault(ctx context.Context, sessionID string, seq uint64, reason string) error {
 	_, err := b.db.ExecContext(ctx,
 		`INSERT INTO provenance_faults (session_id, seq, reason, detected_at)
@@ -223,7 +223,7 @@ func (b *Buffer) WriteQuote(ctx context.Context, q QuoteRow) (int64, error) {
 		time.Now().UTC().Format(time.RFC3339Nano),
 	)
 	if err != nil {
-		return 0, fmt.Errorf("trustbuffer: write quote: %w", err)
+		return 0, fmt.Errorf("hotbuffer: write quote: %w", err)
 	}
 	return res.LastInsertId()
 }

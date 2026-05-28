@@ -101,11 +101,11 @@ type MCUState struct {
 // updates and the policy engine skips the field.
 func DefaultSubscribeObjects() map[string]interface{} {
 	return map[string]interface{}{
-		"extruder":                          nil,
-		"heater_bed":                        nil,
-		"motion_report":                     nil,
-		"print_stats":                       nil,
-		"mcu":                               nil,
-		"temperature_sensor chamber":        nil, // optional — absent on printers without enclosure
+		"extruder":                   nil,
+		"heater_bed":                 nil,
+		"motion_report":              nil,
+		"print_stats":                nil,
+		"mcu":                        nil,
+		"temperature_sensor chamber": nil, // optional — absent on printers without enclosure
 	}
 }
