@@ -1,0 +1,1086 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>axm-sfn · Custody Chain Demo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300&family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Source+Serif+4:ital,wght@0,300;0,400;0,600;1,300;1,400&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:          #090a0b;
+  --bg-1:        #0f1012;
+  --bg-2:        #161719;
+  --bg-3:        #1c1d20;
+  --teal:        #1ab8a0;
+  --teal-hi:     #2adcc2;
+  --teal-dim:    #0a5c52;
+  --teal-glow:   rgba(26,184,160,0.10);
+  --teal-border: rgba(26,184,160,0.28);
+  --amber:       #c8a84b;
+  --amber-dim:   rgba(200,168,75,0.15);
+  --red:         #f15539;
+  --red-dim:     rgba(241,85,57,0.15);
+  --green:       #3a8a5a;
+  --green-hi:    #4ab872;
+  --white:       #dde4e8;
+  --white-dim:   #97a7ad;
+  --white-faint: #7c8c92;
+  --rule:        #181b1e;
+  --rule-strong: #222528;
+  --font-disp:   'Chakra Petch', sans-serif;
+  --font-mono:   'Space Mono', monospace;
+  --font-body:   'Source Serif 4', Georgia, serif;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; overflow: hidden; }
+
+body {
+  background: var(--bg);
+  color: var(--white);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  -webkit-font-smoothing: antialiased;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── TOP BAR ─────────────────────────────────────────────── */
+.topbar {
+  height: 44px;
+  background: var(--bg-1);
+  border-bottom: 1px solid var(--rule-strong);
+  display: flex;
+  align-items: center;
+  padding: 0 16px;
+  gap: 0;
+  flex-shrink: 0;
+  z-index: 10;
+}
+
+.topbar-brand {
+  font-family: var(--font-disp);
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  color: var(--teal);
+  margin-right: 20px;
+  white-space: nowrap;
+}
+.topbar-brand span { color: var(--white-dim); font-weight: 300; }
+
+.topbar-sep {
+  width: 1px;
+  height: 20px;
+  background: var(--rule-strong);
+  margin: 0 12px;
+  flex-shrink: 0;
+}
+
+/* scenario tabs */
+.scenario-tabs {
+  display: flex;
+  gap: 2px;
+}
+.scn-tab {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--white-faint);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  padding: 5px 10px;
+  cursor: pointer;
+  transition: color .15s, background .15s, border-color .15s;
+  white-space: nowrap;
+}
+.scn-tab:hover { color: var(--white-dim); background: rgba(255,255,255,0.03); }
+.scn-tab.active { color: var(--teal); background: var(--teal-glow); border-color: var(--teal-border); }
+
+/* controls */
+.ctl-group {
+  display: flex;
+  gap: 2px;
+  margin-left: auto;
+}
+.ctl-btn {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  color: var(--white-dim);
+  background: transparent;
+  border: 1px solid var(--rule-strong);
+  border-radius: 3px;
+  padding: 5px 10px;
+  cursor: pointer;
+  transition: color .15s, background .15s;
+  white-space: nowrap;
+}
+.ctl-btn:hover { color: var(--white); background: rgba(255,255,255,0.04); }
+.ctl-btn.accent { color: var(--teal); border-color: var(--teal-dim); }
+.ctl-btn.accent:hover { background: var(--teal-glow); }
+.ctl-btn.danger:hover { color: var(--red); border-color: rgba(241,85,57,0.4); }
+.ctl-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+
+.back-link {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--white-faint);
+  text-decoration: none;
+  padding: 5px 10px;
+  border: 1px solid var(--rule-strong);
+  border-radius: 3px;
+  transition: color .15s;
+}
+.back-link:hover { color: var(--white-dim); }
+
+/* ── SPLIT LAYOUT ─────────────────────────────────────────── */
+.workspace {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 320px 1fr;
+  overflow: hidden;
+}
+
+/* ── LEFT PANEL ──────────────────────────────────────────── */
+.left-panel {
+  background: var(--bg-1);
+  border-right: 1px solid var(--rule-strong);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-height: 0;
+}
+
+.panel-hd {
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--rule-strong);
+  background: var(--bg-2);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-shrink: 0;
+}
+.panel-hd-label {
+  font-size: 9px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--white-faint);
+}
+.state-pill {
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  padding: 2px 8px;
+  border-radius: 3px;
+  color: var(--white-faint);
+  background: var(--bg-3);
+  text-transform: uppercase;
+}
+.state-pill.printing { color: var(--teal-hi); background: var(--teal-glow); }
+.state-pill.standby  { color: var(--amber); background: var(--amber-dim); }
+.state-pill.complete { color: var(--green-hi); background: rgba(58,138,90,0.15); }
+
+/* gauges */
+.gauges {
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--rule-strong);
+  flex-shrink: 0;
+}
+.gauge {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  padding: 5px 0;
+  border-bottom: 1px dotted var(--rule-strong);
+}
+.gauge:last-child { border-bottom: none; }
+.gauge-lbl { color: var(--white-faint); font-size: 10px; letter-spacing: 0.04em; }
+.gauge-val {
+  font-family: var(--font-disp);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--white);
+  letter-spacing: 0.02em;
+}
+.gauge-val .unit { font-size: 9px; color: var(--white-faint); font-weight: 400; margin-left: 2px; }
+.gauge-val .tgt  { font-size: 10px; color: var(--white-faint); font-weight: 400; }
+.gauge-val.off  { color: var(--red); }
+.gauge-val.warn { color: var(--amber); }
+
+/* source indicator */
+.source-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 14px;
+  border-bottom: 1px solid var(--rule-strong);
+  flex-shrink: 0;
+}
+.source-label { color: var(--white-faint); font-size: 9px; letter-spacing: 0.1em; text-transform: uppercase; }
+.source-flag { font-size: 10px; letter-spacing: 0.06em; }
+.source-flag.live { color: var(--green-hi); }
+
+@keyframes silent-blink { 0%,100% { opacity: 1 } 50% { opacity: 0.3 } }
+.source-flag.silent { color: var(--red); animation: silent-blink 1s ease-in-out infinite; }
+
+/* verdict */
+.verdict-box {
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--rule-strong);
+  flex-shrink: 0;
+}
+.verdict-row { display: flex; align-items: center; justify-content: space-between; }
+.verdict-tag { font-family: var(--font-disp); font-size: 13px; font-weight: 700; letter-spacing: 0.08em; }
+.verdict-tag.pass { color: var(--green-hi); }
+.verdict-tag.fail { color: var(--red); }
+.verdict-tag.none { color: var(--white-faint); }
+.verdict-meta { font-size: 9px; color: var(--white-faint); letter-spacing: 0.04em; }
+.verdict-violations { margin-top: 6px; font-size: 10px; color: #ff7a5c; line-height: 1.6; }
+
+/* stats bar */
+.stats-bar {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  border-bottom: 1px solid var(--rule-strong);
+  flex-shrink: 0;
+}
+.stat-cell {
+  padding: 8px 0;
+  text-align: center;
+  border-right: 1px solid var(--rule-strong);
+}
+.stat-cell:last-child { border-right: none; }
+.stat-num {
+  font-family: var(--font-disp);
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--teal);
+  line-height: 1;
+}
+.stat-lbl {
+  font-size: 8px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--white-faint);
+  margin-top: 4px;
+}
+
+/* event log */
+.log-wrap {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-height: 0;
+}
+.log-hd {
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--rule-strong);
+  font-size: 9px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--white-faint);
+  background: var(--bg-2);
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.log-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px 14px;
+  font-size: 10.5px;
+  line-height: 1.9;
+}
+.log-body::-webkit-scrollbar { width: 4px; }
+.log-body::-webkit-scrollbar-thumb { background: var(--rule-strong); border-radius: 2px; }
+.log-line { color: var(--white-dim); }
+.log-line .lt { color: var(--white-faint); margin-right: 8px; }
+.log-line.ok  { color: var(--green-hi); }
+.log-line.warn { color: var(--amber); }
+.log-line.err { color: #ff7a5c; }
+.log-line.tpm { color: var(--teal); }
+.log-empty { color: var(--white-faint); font-style: italic; padding-top: 4px; }
+
+/* ── RIGHT PANEL — CHAIN VISUALIZATION ──────────────────── */
+.right-panel {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--bg);
+  min-height: 0;
+}
+
+.chain-header {
+  padding: 10px 20px;
+  border-bottom: 1px solid var(--rule-strong);
+  background: var(--bg-1);
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  flex-shrink: 0;
+}
+.chain-title {
+  font-family: var(--font-disp);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--teal);
+}
+.chain-session {
+  font-size: 10px;
+  color: var(--white-faint);
+  letter-spacing: 0.04em;
+  font-family: var(--font-mono);
+}
+.chain-mpf {
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  padding: 2px 8px;
+  background: var(--teal-glow);
+  border: 1px solid var(--teal-border);
+  color: var(--teal-hi);
+  border-radius: 2px;
+  margin-left: auto;
+}
+
+/* banner */
+.chain-banner {
+  padding: 10px 20px;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  line-height: 1.6;
+  border-bottom: 1px solid var(--rule-strong);
+  display: none;
+  flex-shrink: 0;
+}
+.chain-banner.intact {
+  display: block;
+  background: rgba(58,138,90,0.1);
+  border-color: rgba(74,184,114,0.3);
+  color: var(--green-hi);
+}
+.chain-banner.broken {
+  display: block;
+  background: var(--red-dim);
+  border-color: rgba(241,85,57,0.4);
+  color: #ff7a5c;
+}
+
+/* segment dividers */
+.chain-body {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  min-height: 0;
+}
+.chain-body::-webkit-scrollbar { width: 6px; }
+.chain-body::-webkit-scrollbar-thumb { background: var(--rule-strong); border-radius: 3px; }
+
+/* segment block */
+.seg-block {
+  border-bottom: 1px solid var(--rule-strong);
+}
+.seg-header {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  padding: 6px 20px;
+  background: var(--bg-2);
+  border-bottom: 1px solid var(--rule);
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+.seg-label {
+  font-size: 9px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--white-faint);
+}
+.seg-merkle {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--teal-hi);
+  letter-spacing: 0.02em;
+}
+.seg-merkle.broken { color: #ff7a5c; text-decoration: line-through; }
+
+/* packet row */
+.pkt-row {
+  display: grid;
+  grid-template-columns: 52px 12px 1fr auto auto;
+  align-items: center;
+  gap: 10px;
+  padding: 5px 20px;
+  border-bottom: 1px solid var(--rule);
+  transition: background .1s;
+  min-height: 28px;
+}
+.pkt-row:last-child { border-bottom: none; }
+.pkt-row:hover { background: rgba(255,255,255,0.015); }
+.pkt-row.broken { background: var(--red-dim); }
+.pkt-row.diverge-first { box-shadow: inset 3px 0 0 var(--red); }
+
+.pkt-seq {
+  font-size: 10px;
+  color: var(--white-faint);
+  font-family: var(--font-mono);
+  text-align: right;
+}
+.pkt-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+.pkt-dot.pass { background: var(--green); }
+.pkt-dot.fail { background: var(--red); }
+
+.pkt-hash-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.pkt-hash {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--teal);
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.pkt-row.broken .pkt-hash { color: #ff7a5c; text-decoration: line-through; }
+.pkt-chain-link {
+  font-size: 9px;
+  color: var(--white-faint);
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.pkt-badges { display: flex; gap: 4px; flex-shrink: 0; }
+.pkt-badge {
+  font-size: 8px;
+  letter-spacing: 0.08em;
+  padding: 1px 5px;
+  border-radius: 2px;
+  color: var(--white-faint);
+  background: var(--bg-3);
+  white-space: nowrap;
+}
+.pkt-badge.quote { color: var(--amber); background: var(--amber-dim); }
+.pkt-badge.seal  { color: var(--teal-hi); background: var(--teal-glow); }
+.pkt-badge.fault { color: #ff7a5c; background: var(--red-dim); }
+.pkt-badge.tamp  { color: var(--amber); }
+
+.pkt-verdict {
+  font-family: var(--font-disp);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  flex-shrink: 0;
+  width: 40px;
+  text-align: right;
+}
+.pkt-verdict.pass { color: var(--green); }
+.pkt-verdict.fail { color: var(--red); }
+.pkt-verdict.none { color: var(--white-faint); }
+
+/* empty state */
+.chain-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  gap: 16px;
+  color: var(--white-faint);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.chain-empty .big {
+  font-family: var(--font-disp);
+  font-size: 48px;
+  font-weight: 700;
+  color: var(--rule-strong);
+  letter-spacing: -0.02em;
+  line-height: 1;
+}
+
+/* ── PROGRESS BAR ──────────────────────────────────────────── */
+.progress-bar-wrap {
+  height: 3px;
+  background: var(--rule-strong);
+  flex-shrink: 0;
+}
+.progress-bar {
+  height: 100%;
+  background: var(--teal);
+  width: 0%;
+  transition: width 0.1s linear;
+}
+.progress-bar.red { background: var(--red); }
+
+/* ── SCROLLBAR GLOBAL ──────────────────────────────────────── */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--rule-strong); border-radius: 3px; }
+
+/* ── MOBILE FALLBACK ──────────────────────────────────────── */
+@media (max-width: 700px) {
+  .workspace { grid-template-columns: 1fr; }
+  .right-panel { display: none; }
+  html, body { overflow: auto; }
+  .workspace { height: auto; }
+  .left-panel { height: auto; overflow: visible; }
+  .log-body { max-height: 200px; }
+}
+</style>
+</head>
+<body>
+
+<!-- TOP BAR -->
+<div class="topbar">
+  <div class="topbar-brand">axm-sfn<span> · custody demo</span></div>
+  <div class="topbar-sep"></div>
+  <div class="scenario-tabs" id="scn-tabs">
+    <button class="scn-tab active" data-scenario="clean">Clean</button>
+    <button class="scn-tab" data-scenario="thermal">Thermal fault</button>
+    <button class="scn-tab" data-scenario="provenance">Provenance fault</button>
+  </div>
+  <div class="topbar-sep"></div>
+  <div class="ctl-group">
+    <button class="ctl-btn accent" id="btn-play">▶ Play</button>
+    <button class="ctl-btn" id="btn-step">Step ›</button>
+    <button class="ctl-btn" id="btn-reset">↻</button>
+  </div>
+  <div class="topbar-sep"></div>
+  <div class="ctl-group">
+    <button class="ctl-btn danger" id="btn-tamper" disabled>⚠ Tamper</button>
+    <button class="ctl-btn" id="btn-export" disabled>⤓ JSON</button>
+  </div>
+  <div class="topbar-sep"></div>
+  <a href="../" class="back-link">← Docs</a>
+</div>
+
+<!-- PROGRESS -->
+<div class="progress-bar-wrap"><div class="progress-bar" id="progress-bar"></div></div>
+
+<!-- WORKSPACE -->
+<div class="workspace">
+
+  <!-- LEFT: MACHINE STATE -->
+  <div class="left-panel">
+    <div class="panel-hd">
+      <span class="panel-hd-label">sfn-node-001 · voron-2.4-001</span>
+      <span class="state-pill standby" id="state-pill">standby</span>
+    </div>
+
+    <div class="gauges">
+      <div class="gauge">
+        <span class="gauge-lbl">tick / seq</span>
+        <span class="gauge-val" id="g-tick" style="font-size:11px">— / —</span>
+      </div>
+      <div class="gauge">
+        <span class="gauge-lbl">extruder</span>
+        <span class="gauge-val" id="g-ext">—<span class="unit">°C</span> <span class="tgt">/ —</span></span>
+      </div>
+      <div class="gauge">
+        <span class="gauge-lbl">bed</span>
+        <span class="gauge-val" id="g-bed">—<span class="unit">°C</span> <span class="tgt">/ —</span></span>
+      </div>
+      <div class="gauge">
+        <span class="gauge-lbl">chamber <span style="color:var(--white-faint)">(min 90°C)</span></span>
+        <span class="gauge-val" id="g-cham">—<span class="unit">°C</span></span>
+      </div>
+      <div class="gauge">
+        <span class="gauge-lbl">toolhead</span>
+        <span class="gauge-val" id="g-vel">—<span class="unit">mm/s</span></span>
+      </div>
+    </div>
+
+    <div class="source-row">
+      <span class="source-label">Moonraker source</span>
+      <span class="source-flag live" id="g-src">● awaiting</span>
+    </div>
+
+    <div class="verdict-box">
+      <div class="verdict-row">
+        <span class="verdict-tag none" id="v-tag">— idle</span>
+        <span class="verdict-meta" id="v-meta">no profile active</span>
+      </div>
+      <div class="verdict-violations" id="v-viol"></div>
+    </div>
+
+    <div class="stats-bar">
+      <div class="stat-cell"><div class="stat-num" id="s-pkts">0</div><div class="stat-lbl">packets</div></div>
+      <div class="stat-cell"><div class="stat-num" id="s-faults">0</div><div class="stat-lbl">faults</div></div>
+      <div class="stat-cell"><div class="stat-num" id="s-segs">0</div><div class="stat-lbl">segments</div></div>
+    </div>
+
+    <div class="log-wrap">
+      <div class="log-hd">
+        <span>Event Log</span>
+        <span id="log-count" style="color:var(--white-faint);font-size:9px"></span>
+      </div>
+      <div class="log-body" id="log-body">
+        <div class="log-empty">Waiting for session…</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- RIGHT: CHAIN VISUALIZATION -->
+  <div class="right-panel">
+    <div class="chain-header">
+      <span class="chain-title">BLAKE3 Custody Chain</span>
+      <span class="chain-session" id="chain-session">session: —</span>
+      <span class="chain-mpf" id="chain-mpf">mpf: —</span>
+    </div>
+    <div class="chain-banner" id="chain-banner"></div>
+    <div class="chain-body" id="chain-body">
+      <div class="chain-empty">
+        <div class="big">CHAIN</div>
+        <div>Select a scenario and press Play</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script type="module">
+import { build }         from "../assets/scenarios.js";
+import { computeRun, diffRuns } from "../assets/recorder.js";
+import { MPF }           from "../assets/mpf.js";
+
+// ── State ──────────────────────────────────────────────────────────────────
+const SPEED_MS   = 160;
+const BATCH_SIZE = 15; // must match recorder.js
+
+let run, rec, HEAT = 0;
+let frameIdx = 0, revealed = 0, segShown = 0, faultsShown = 0, logCount = 0;
+let silentTicks = 0;
+let timer = null, tampered = false;
+// segment elements keyed by seg index
+let segEls = [];
+
+// ── DOM refs ───────────────────────────────────────────────────────────────
+const $ = id => document.getElementById(id);
+const el = (tag, cls, txt) => { const e = document.createElement(tag); if (cls) e.className = cls; if (txt !== undefined) e.textContent = txt; return e; };
+
+// ── Utilities ──────────────────────────────────────────────────────────────
+const f1 = x => (x == null ? '—' : x.toFixed(1));
+const BASE_TIME = Date.parse('2026-05-28T00:00:00Z');
+const tickTs = t => new Date(BASE_TIME + t * 1000).toISOString().slice(11, 19);
+
+function setStatePill(s) {
+  const p = $('state-pill');
+  p.textContent = s;
+  p.className = 'state-pill ' + s;
+}
+
+function setGauge(id, val, target, badClass) {
+  const node = $(id);
+  let html = `${f1(val)}<span class="unit">°C</span>`;
+  if (target != null) html += ` <span class="tgt">/ ${f1(target)}</span>`;
+  node.innerHTML = html;
+  node.className = 'gauge-val' + (badClass ? ' ' + badClass : '');
+}
+
+function log(msg, cls = '') {
+  const body = $('log-body');
+  // Remove empty placeholder
+  const placeholder = body.querySelector('.log-empty');
+  if (placeholder) placeholder.remove();
+
+  const line = el('div', 'log-line ' + cls);
+  line.innerHTML = `<span class="lt">${tickTs(frameIdx)}</span>${msg}`;
+  body.appendChild(line);
+  body.scrollTop = body.scrollHeight;
+  logCount++;
+  $('log-count').textContent = `${logCount} events`;
+}
+
+function setProgress(frac, red = false) {
+  const bar = $('progress-bar');
+  bar.style.width = (Math.min(1, frac) * 100) + '%';
+  bar.className = 'progress-bar' + (red ? ' red' : '');
+}
+
+// ── Chain visualization helpers ────────────────────────────────────────────
+function ensureSegEl(segIdx) {
+  if (segEls[segIdx]) return segEls[segIdx];
+
+  const block = el('div', 'seg-block');
+  block.id = `seg-${segIdx}`;
+
+  const hd = el('div', 'seg-header');
+  const lbl = el('span', 'seg-label', `Segment ${String(segIdx).padStart(2,'0')}`);
+  const merkleEl = el('span', 'seg-merkle', '…');
+  merkleEl.id = `seg-merkle-${segIdx}`;
+  hd.appendChild(lbl);
+  hd.appendChild(merkleEl);
+  block.appendChild(hd);
+
+  const rows = el('div', 'seg-rows');
+  rows.id = `seg-rows-${segIdx}`;
+  block.appendChild(rows);
+
+  $('chain-body').appendChild(block);
+  segEls[segIdx] = { block, hd, merkleEl, rows };
+  return segEls[segIdx];
+}
+
+function appendPktToChain(pkt, broken = false, divergeFirst = false) {
+  const segIdx = Math.floor(pkt.seq / BATCH_SIZE);
+  const { rows } = ensureSegEl(segIdx);
+
+  const row = el('div', 'pkt-row' + (broken ? ' broken' : '') + (divergeFirst ? ' diverge-first' : ''));
+  row.id = `pkt-${pkt.seq}`;
+
+  const seqEl = el('span', 'pkt-seq', `#${pkt.seq}`);
+
+  const dot = el('span', 'pkt-dot ' + (pkt.verdict.pass ? 'pass' : 'fail'));
+
+  const hashWrap = el('div', 'pkt-hash-wrap');
+  const hashEl = el('div', 'pkt-hash', `b3:${pkt.packet_blake3.slice(0, 20)}…`);
+  const chainEl = el('div', 'pkt-chain-link',
+    pkt.prev_packet_blake3 ? `← ${pkt.prev_packet_blake3.slice(0, 16)}…` : '← genesis');
+  hashWrap.appendChild(hashEl);
+  hashWrap.appendChild(chainEl);
+
+  const badges = el('div', 'pkt-badges');
+  if (pkt.quoted) {
+    const b = el('span', 'pkt-badge quote', '⚿ TPM');
+    badges.appendChild(b);
+  }
+  if (pkt.tampered) {
+    const b = el('span', 'pkt-badge tamp', '⚠ tampered');
+    badges.appendChild(b);
+  }
+
+  const verd = el('span', 'pkt-verdict ' + (pkt.verdict.pass ? 'pass' : 'fail'),
+    pkt.verdict.pass ? 'PASS' : 'FAIL');
+
+  row.appendChild(seqEl);
+  row.appendChild(dot);
+  row.appendChild(hashWrap);
+  row.appendChild(badges);
+  row.appendChild(verd);
+
+  rows.appendChild(row);
+
+  // Scroll the chain body to show new packets
+  const chainBody = $('chain-body');
+  chainBody.scrollTop = chainBody.scrollHeight;
+}
+
+function sealSegment(segIdx, merkleRoot, broken = false) {
+  const s = segEls[segIdx];
+  if (!s) return;
+  s.merkleEl.textContent = (broken ? '✗ ' : '') + merkleRoot.slice(0, 24) + '…';
+  if (broken) s.merkleEl.className = 'seg-merkle broken';
+
+  // Add seal badge to last packet row in segment
+  const rows = s.rows;
+  const lastRow = rows.lastElementChild;
+  if (lastRow) {
+    const badges = lastRow.querySelector('.pkt-badges');
+    if (badges) {
+      const b = el('span', 'pkt-badge seal', '⬡ sealed');
+      badges.appendChild(b);
+    }
+  }
+}
+
+function faultBadgeOnLast() {
+  // Add fault badge to the most recent packet row
+  const body = $('chain-body');
+  const rows = body.querySelectorAll('.pkt-row');
+  if (rows.length === 0) return;
+  const last = rows[rows.length - 1];
+  const badges = last.querySelector('.pkt-badges');
+  if (badges) {
+    const b = el('span', 'pkt-badge fault', '✗ fault');
+    badges.appendChild(b);
+  }
+}
+
+// ── Scenario loading ───────────────────────────────────────────────────────
+function loadScenario(id) {
+  pause();
+  run = build(id);
+  rec  = computeRun(run, MPF);
+  HEAT = run.heatTicks;
+  document.querySelectorAll('.scn-tab').forEach(b =>
+    b.classList.toggle('active', b.dataset.scenario === id));
+  $('chain-mpf').textContent = 'mpf: ' + rec.mpfId;
+  resetUI();
+  log(`Scenario <b style="color:var(--teal)">${id}</b> loaded · ${rec.packets.length} packets precomputed`, '');
+}
+
+// ── Reset ─────────────────────────────────────────────────────────────────
+function resetUI() {
+  pause();
+  frameIdx = 0; revealed = 0; segShown = 0; faultsShown = 0; logCount = 0;
+  silentTicks = 0; tampered = false;
+  segEls = [];
+
+  $('chain-body').innerHTML = `<div class="chain-empty"><div class="big">CHAIN</div><div>Press Play to run</div></div>`;
+  $('log-body').innerHTML = '<div class="log-empty">Waiting for session…</div>';
+  $('log-count').textContent = '';
+
+  $('s-pkts').textContent = '0';
+  $('s-faults').textContent = '0';
+  $('s-segs').textContent = '0';
+
+  $('g-tick').textContent = '— / —';
+  $('g-ext').innerHTML = '—<span class="unit">°C</span> <span class="tgt">/ —</span>';
+  $('g-bed').innerHTML = '—<span class="unit">°C</span> <span class="tgt">/ —</span>';
+  $('g-cham').innerHTML = '—<span class="unit">°C</span>';
+  $('g-vel').innerHTML = '—<span class="unit">mm/s</span>';
+
+  $('g-src').className = 'source-flag live';
+  $('g-src').textContent = '● awaiting';
+
+  $('v-tag').className = 'verdict-tag none';
+  $('v-tag').textContent = '— idle';
+  $('v-meta').textContent = 'no profile active';
+  $('v-viol').textContent = '';
+
+  $('chain-banner').className = 'chain-banner';
+  $('chain-session').textContent = 'session: —';
+
+  $('btn-tamper').disabled = true;
+  $('btn-export').disabled = true;
+  $('btn-play').textContent = '▶ Play';
+  setProgress(0);
+  setStatePill('standby');
+}
+
+// ── Frame application ──────────────────────────────────────────────────────
+function applyFrame() {
+  if (!run) return;
+  if (frameIdx >= run.frames.length) { finish(); return; }
+
+  const i = frameIdx;
+  const frame = run.frames[i];
+  const st = frame.state;
+  const totalFrames = run.frames.length;
+  setProgress((i + 1) / totalFrames);
+  $('g-tick').textContent = `${i} / ${totalFrames - 1}`;
+
+  if (i < HEAT) {
+    // Heating phase
+    setStatePill('standby');
+    setGauge('g-ext', st.extruder_temp, st.extruder_target);
+    setGauge('g-bed', st.bed_temp, st.bed_target);
+    setGauge('g-cham', st.chamber_temp, null, st.chamber_temp < 90 ? 'warn' : '');
+    $('g-vel').innerHTML = '—<span class="unit">mm/s</span>';
+    $('g-src').className = 'source-flag live';
+    $('g-src').textContent = '● live (heating)';
+    $('v-tag').className = 'verdict-tag none';
+    $('v-tag').textContent = '— pre-print';
+    $('v-meta').textContent = 'not recording';
+    if (i === 0) log('Pre-print heating — custody clock not yet active', 'warn');
+
+  } else if (i - HEAT < rec.packets.length) {
+    // Recording phase
+    const pkt = rec.packets[i - HEAT];
+
+    if (i === HEAT) {
+      $('chain-body').innerHTML = ''; // clear empty state
+      segEls = [];
+      $('chain-session').textContent = `session: ${rec.sessionID.slice(0, 16)}…`;
+      log(`New session started · session_id=${rec.sessionID.slice(0, 16)}…`, 'tpm');
+      setStatePill('printing');
+    }
+
+    // Source indicator
+    if (frame.deltaArrived) {
+      silentTicks = 0;
+      $('g-src').className = 'source-flag live';
+      $('g-src').textContent = '● live';
+    } else {
+      silentTicks++;
+      $('g-src').className = 'source-flag silent';
+      $('g-src').textContent = `● SILENT (${silentTicks}s)`;
+    }
+
+    // Gauges
+    const tel = pkt.telemetry;
+    const extOff = !pkt.verdict.pass && pkt.verdict.violations.some(v => v.includes('extruder'));
+    setGauge('g-ext', tel.extruder_temp, tel.extruder_target, extOff ? 'off' : '');
+    setGauge('g-bed', tel.bed_temp, tel.bed_target);
+    setGauge('g-cham', tel.chamber_temp, null, tel.chamber_temp < 90 ? 'off' : '');
+    const velEl = $('g-vel');
+    velEl.innerHTML = `${f1(tel.live_velocity)}<span class="unit">mm/s</span>`;
+
+    // Verdict
+    if (pkt.verdict.pass) {
+      $('v-tag').className = 'verdict-tag pass';
+      $('v-tag').textContent = '✓ PASS';
+      $('v-meta').textContent = pkt.verdict.profile_id;
+      $('v-viol').textContent = '';
+    } else {
+      $('v-tag').className = 'verdict-tag fail';
+      $('v-tag').textContent = '✗ FAIL';
+      $('v-meta').textContent = pkt.verdict.profile_id;
+      $('v-viol').innerHTML = pkt.verdict.violations.map(v => '› ' + v).join('<br>');
+    }
+
+    // Append to chain
+    appendPktToChain(pkt);
+    revealed++;
+    $('s-pkts').textContent = revealed;
+
+    // Provenance fault
+    const fault = rec.faults.find(f => f.seq === pkt.seq);
+    if (fault) {
+      faultsShown++;
+      $('s-faults').textContent = faultsShown;
+      faultBadgeOnLast();
+      log(`PROVENANCE FAULT — ${fault.reason}`, 'err');
+    }
+
+    // TPM quote
+    if (pkt.quoted) {
+      log(`TPM2_Quote sealed · seq ${pkt.seq} · PCR 10,11,12,15`, 'tpm');
+    }
+
+    // Segment seal
+    const seg = rec.segments.find(s => s.seq_end === pkt.seq);
+    if (seg) {
+      const segIdx = Math.floor(pkt.seq / BATCH_SIZE);
+      sealSegment(segIdx, seg.merkle_root);
+      segShown++;
+      $('s-segs').textContent = segShown;
+      log(`Segment sealed · seq ${seg.seq_start}–${seg.seq_end} · merkle:${seg.merkle_root.slice(0,12)}…`, 'ok');
+    }
+
+  } else {
+    // Complete
+    setStatePill('complete');
+    setGauge('g-ext', st.extruder_temp, st.extruder_target);
+    setGauge('g-bed', st.bed_temp, st.bed_target);
+    setGauge('g-cham', st.chamber_temp);
+    $('g-vel').innerHTML = `0<span class="unit">mm/s</span>`;
+    $('g-src').className = 'source-flag live';
+    $('g-src').textContent = '● live';
+    $('v-tag').className = 'verdict-tag none';
+    $('v-tag').textContent = '— complete';
+    $('v-meta').textContent = 'print finished';
+  }
+
+  frameIdx++;
+  if (frameIdx >= run.frames.length) finish();
+}
+
+// ── Finish ────────────────────────────────────────────────────────────────
+function finish() {
+  pause();
+  setProgress(1);
+  $('btn-play').textContent = '▶ Play';
+  $('btn-export').disabled = false;
+  if (!tampered) {
+    $('btn-tamper').disabled = false;
+    log(`Session complete · chain intact · ${revealed} packets · ${segShown} segments`, 'ok');
+    const banner = $('chain-banner');
+    banner.className = 'chain-banner intact';
+    banner.textContent = `✓ Chain intact — ${revealed} packets, ${segShown} Merkle segments, ${faultsShown} provenance fault(s). Same seed → bit-identical chain.`;
+  }
+}
+
+// ── Play / Pause / Step ───────────────────────────────────────────────────
+function play() {
+  if (!run) return;
+  if (frameIdx >= run.frames.length) resetUI();
+  if (timer) return;
+  $('btn-play').textContent = '⏸ Pause';
+  timer = setInterval(applyFrame, SPEED_MS);
+}
+function pause() {
+  if (timer) { clearInterval(timer); timer = null; }
+  const p = $('btn-play'); if (p) p.textContent = '▶ Play';
+}
+
+// ── Tamper ────────────────────────────────────────────────────────────────
+function tamperRun() {
+  pause();
+  // Run to end first
+  while (frameIdx < run.frames.length) applyFrame();
+
+  const T = Math.min(28, rec.packets.length - 1);
+  const tgt = rec.packets[T].telemetry.extruder_target;
+  const tam = computeRun(run, MPF, { atSeq: T, field: 'extruder_temp', value: tgt + 60 });
+  const diff = diffRuns(rec, tam);
+  tampered = true;
+
+  // Rebuild chain visualization with tampered data
+  $('chain-body').innerHTML = '';
+  segEls = [];
+
+  tam.packets.forEach(p => {
+    const broken = p.seq >= diff.firstDiverge;
+    const first  = p.seq === diff.firstDiverge;
+    appendPktToChain(p, broken, first);
+  });
+
+  // Seal segments, mark changed ones
+  rec.segments.forEach((seg, idx) => {
+    const broken = diff.changedSegments.includes(idx);
+    const root = tam.segments[idx]?.merkle_root ?? seg.merkle_root;
+    sealSegment(idx, root, broken);
+  });
+
+  // Scroll to divergence point
+  const firstBroken = $(`pkt-${diff.firstDiverge}`);
+  if (firstBroken) firstBroken.scrollIntoView({ block: 'center' });
+
+  const banner = $('chain-banner');
+  banner.className = 'chain-banner broken';
+  banner.innerHTML = `✗ Tampered seq ${T} (extruder_temp → ${(tgt+60).toFixed(0)}°C) · chain breaks at seq <b>${diff.firstDiverge}</b> · ${diff.changedSegments.length} of ${rec.segments.length} Merkle roots invalidated.`;
+
+  log(`TAMPER: forged seq ${T} → BLAKE3 diverges at seq ${diff.firstDiverge} · ${diff.changedSegments.length} segments invalidated`, 'err');
+  setProgress(1, true);
+  $('btn-tamper').disabled = true;
+  $('btn-tamper').textContent = '⚠ tampered';
+}
+
+// ── Export ────────────────────────────────────────────────────────────────
+function exportJSON() {
+  const out = {
+    scenario: run.scenarioId, seed: run.seed,
+    session_id: rec.sessionID, mpf_id: rec.mpfId,
+    packets: rec.packets.map(({ b3bytes, ...p }) => p),
+    faults: rec.faults, segments: rec.segments,
+  };
+  const blob = new Blob([JSON.stringify(out, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `axm-sfn-${run.scenarioId}-${rec.sessionID.slice(0, 8)}.json`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+// ── Event wiring ──────────────────────────────────────────────────────────
+document.querySelectorAll('.scn-tab').forEach(b =>
+  b.addEventListener('click', () => loadScenario(b.dataset.scenario)));
+$('btn-play').addEventListener('click', () => timer ? pause() : play());
+$('btn-step').addEventListener('click', () => { pause(); applyFrame(); });
+$('btn-reset').addEventListener('click', resetUI);
+$('btn-tamper').addEventListener('click', tamperRun);
+$('btn-export').addEventListener('click', exportJSON);
+
+// ── Init ──────────────────────────────────────────────────────────────────
+loadScenario('clean');
+</script>
+</body>
+</html>
