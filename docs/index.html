@@ -20,13 +20,14 @@
   --teal-border: rgba(26,184,160,0.28);
   --amber:       #c8a84b;
   --amber-dim:   rgba(200,168,75,0.15);
-  --red:         #cc3311;
+  --red:         #f15539;
   --red-dim:     rgba(204,51,17,0.15);
   --green:       #3a8a5a;
   --green-hi:    #4ab872;
+  --teal-text:   #2f9f8c;
   --white:       #dde4e8;
-  --white-dim:   #7a8a90;
-  --white-faint: #4a5a60;
+  --white-dim:   #97a7ad;
+  --white-faint: #7c8c92;
   --rule:        #181b1e;
   --rule-strong: #222528;
   --font-disp:   'Chakra Petch', sans-serif;
@@ -311,7 +312,7 @@ section {
   font-family: var(--font-mono);
   font-size: 9px;
   letter-spacing: 0.25em;
-  color: var(--teal-dim);
+  color: var(--teal-text);
   text-transform: uppercase;
   flex-shrink: 0;
 }
@@ -455,7 +456,7 @@ p:last-child { margin-bottom: 0; }
 .code-lang {
   font-family: var(--font-mono);
   font-size: 9px;
-  color: var(--teal-dim);
+  color: var(--teal-text);
   letter-spacing: 0.1em;
 }
 pre {
@@ -615,12 +616,158 @@ pre .err { color: var(--red); }
   font-size: 12px;
   line-height: 2.1;
 }
-.term-body .prompt { color: var(--teal-dim); user-select: none; }
+.term-body .prompt { color: var(--teal-text); user-select: none; }
 .term-body .cmd { color: var(--white); }
 .term-body .arg { color: var(--teal); }
 .term-body .comment { color: var(--white-faint); }
 .term-body .out-ok { color: var(--green-hi); }
 .term-body .out { color: var(--white-dim); }
+
+/* ── LIVE DEMO ─────────────────────────────────────────── */
+.demo-note {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  color: var(--white-faint);
+  margin: 18px 0 28px;
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+}
+.demo-note b { color: var(--teal); font-weight: 700; }
+.demo-controls {
+  display: flex; flex-wrap: wrap; gap: 8px;
+  align-items: center; margin-bottom: 24px;
+}
+.demo-ctl-group {
+  display: flex; gap: 4px;
+  padding: 4px; border: 1px solid var(--rule-strong); border-radius: 4px;
+  background: var(--bg-1);
+}
+.demo-ctl-sep { width: 1px; height: 22px; background: var(--rule-strong); margin: 0 4px; }
+.demo-btn {
+  font-family: var(--font-mono);
+  font-size: 11px; letter-spacing: 0.06em;
+  color: var(--white-dim);
+  background: transparent;
+  border: 1px solid transparent; border-radius: 3px;
+  padding: 7px 12px; cursor: pointer;
+  transition: color .15s, background .15s, border-color .15s;
+  white-space: nowrap;
+}
+.demo-btn:hover { color: var(--white); background: rgba(255,255,255,0.04); }
+.demo-btn.active { color: var(--bg); background: var(--teal); font-weight: 700; }
+.demo-btn.warn:hover { color: var(--red); border-color: var(--red-dim); }
+.demo-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+
+.demo-banner {
+  font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.04em;
+  padding: 10px 16px; border-radius: 4px; margin-bottom: 20px;
+  border: 1px solid var(--teal-border); background: var(--teal-glow); color: var(--teal-hi);
+  display: none;
+}
+.demo-banner.broken { border-color: var(--red); background: var(--red-dim); color: #ff7a5c; display: block; }
+.demo-banner.intact { display: block; }
+
+.demo-grid {
+  display: grid; grid-template-columns: 360px 1fr; gap: 16px;
+  align-items: start;
+}
+@media (max-width: 860px) { .demo-grid { grid-template-columns: 1fr; } }
+
+.demo-panel {
+  border: 1px solid var(--rule-strong); border-radius: 6px;
+  background: var(--bg-1); overflow: hidden;
+}
+.demo-panel-hd {
+  font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.18em;
+  text-transform: uppercase; color: var(--white-faint);
+  padding: 11px 16px; border-bottom: 1px solid var(--rule-strong);
+  background: var(--bg-2);
+  display: flex; align-items: center; justify-content: space-between;
+}
+.demo-panel-hd .state-pill {
+  font-size: 10px; letter-spacing: 0.12em; padding: 2px 8px; border-radius: 3px;
+  color: var(--white-dim); background: var(--bg-3);
+}
+.state-pill.printing { color: var(--teal-hi); background: var(--teal-glow); }
+.state-pill.standby  { color: var(--amber); background: var(--amber-dim); }
+.state-pill.complete { color: var(--green-hi); background: rgba(58,138,90,0.15); }
+
+.machine-body { padding: 18px 16px; }
+.gauge {
+  display: flex; align-items: baseline; justify-content: space-between;
+  padding: 9px 0; border-bottom: 1px dotted var(--rule-strong);
+}
+.gauge:last-child { border-bottom: none; }
+.gauge-lbl { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.06em; color: var(--white-dim); }
+.gauge-val { font-family: var(--font-mono); font-size: 15px; color: var(--white); font-weight: 700; }
+.gauge-val .unit { font-size: 10px; color: var(--white-faint); font-weight: 400; margin-left: 2px; }
+.gauge-val .tgt { font-size: 11px; color: var(--white-faint); font-weight: 400; }
+.gauge-val.off { color: var(--red); }
+.gauge-val.warn { color: var(--amber); }
+
+.verdict-box {
+  margin-top: 14px; padding: 12px 14px; border-radius: 4px;
+  background: var(--bg-2); border: 1px solid var(--rule-strong);
+}
+.verdict-row { display: flex; align-items: center; justify-content: space-between; }
+.verdict-tag {
+  font-family: var(--font-disp); font-size: 13px; font-weight: 700; letter-spacing: 0.1em;
+}
+.verdict-tag.pass { color: var(--green-hi); }
+.verdict-tag.fail { color: var(--red); }
+.verdict-tag.none { color: var(--white-faint); }
+.verdict-meta { font-family: var(--font-mono); font-size: 10px; color: var(--white-faint); }
+.verdict-violations { margin-top: 8px; font-family: var(--font-mono); font-size: 10px; color: #ff7a5c; line-height: 1.5; }
+.source-flag { font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.08em; }
+.source-flag.live { color: var(--green-hi); }
+.source-flag.silent { color: var(--red); animation: chain-pulse 1s ease-in-out infinite; }
+
+.demo-stats { display: flex; flex-wrap: wrap; gap: 0; margin: 0; }
+.stat {
+  flex: 1; min-width: 70px; padding: 12px 14px; text-align: center;
+  border-right: 1px solid var(--rule-strong);
+}
+.stat:last-child { border-right: none; }
+.stat-num { font-family: var(--font-disp); font-size: 22px; font-weight: 700; color: var(--teal); line-height: 1; }
+.stat-lbl { font-family: var(--font-mono); font-size: 9px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--white-faint); margin-top: 6px; }
+
+.ledger-body {
+  height: 300px; overflow-y: auto;
+  font-family: var(--font-mono); font-size: 11px;
+}
+.ledger-body::-webkit-scrollbar { width: 8px; }
+.ledger-body::-webkit-scrollbar-thumb { background: var(--rule-strong); border-radius: 4px; }
+.pkt-row {
+  display: grid; grid-template-columns: 44px 18px 1fr auto;
+  align-items: center; gap: 8px;
+  padding: 6px 14px; border-bottom: 1px solid var(--rule);
+}
+.pkt-row .pkt-seq { color: var(--white-faint); }
+.pkt-row .pkt-dot { width: 7px; height: 7px; border-radius: 50%; }
+.pkt-dot.pass { background: var(--green); }
+.pkt-dot.fail { background: var(--red); }
+.pkt-row .pkt-hash { color: var(--teal); letter-spacing: 0.02em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pkt-row .pkt-badges { display: flex; gap: 5px; }
+.pkt-badge { font-size: 8px; letter-spacing: 0.08em; padding: 1px 5px; border-radius: 2px; color: var(--white-faint); background: var(--bg-3); }
+.pkt-badge.quote { color: var(--amber); }
+.pkt-badge.seal { color: var(--teal-hi); background: var(--teal-glow); }
+.pkt-row.broken { background: var(--red-dim); }
+.pkt-row.broken .pkt-hash { color: #ff7a5c; text-decoration: line-through; }
+.pkt-row.diverge { box-shadow: inset 3px 0 0 var(--red); }
+
+.log-body {
+  height: 132px; overflow-y: auto;
+  font-family: var(--font-mono); font-size: 10.5px; line-height: 1.7;
+  padding: 10px 14px;
+}
+.log-body::-webkit-scrollbar { width: 8px; }
+.log-body::-webkit-scrollbar-thumb { background: var(--rule-strong); border-radius: 4px; }
+.log-line { color: var(--white-dim); }
+.log-line .lt { color: var(--white-faint); }
+.log-line.ok  { color: var(--green-hi); }
+.log-line.warn { color: var(--amber); }
+.log-line.err { color: #ff7a5c; }
+.log-line.tpm { color: var(--teal); }
 
 /* ── FORMAT SPEC ───────────────────────────────────────── */
 .format-grid {
@@ -650,7 +797,7 @@ pre .err { color: var(--red); }
   align-items: center;
 }
 .byte-row:last-child { border-bottom: none; }
-.byte-off { font-family: var(--font-mono); font-size: 11px; color: var(--teal-dim); }
+.byte-off { font-family: var(--font-mono); font-size: 11px; color: var(--teal-text); }
 .byte-name { font-family: var(--font-mono); font-size: 11px; color: var(--white); }
 .byte-type { font-family: var(--font-mono); font-size: 10px; color: var(--white-faint); text-align: right; }
 
@@ -774,6 +921,7 @@ footer {
   <a href="#layers"     data-section="layers">Three Layers</a>
   <a href="#format"     data-section="format">Stream Format</a>
   <a href="#policy"     data-section="policy">Policy Engine</a>
+  <a href="#demo"       data-section="demo">Live Demo</a>
   <a href="#conform"    data-section="conform">Track Status</a>
   <a href="#start"      data-section="start">Quick Start</a>
 </nav>
@@ -1029,10 +1177,87 @@ footer {
   </div>
 </section>
 
-<!-- §06 TRACK STATUS -->
-<section id="conform">
+<!-- §06 LIVE DEMO -->
+<section id="demo">
   <div class="sec-hd">
     <span class="sec-num">§ 06</span>
+    <h2>Live Custody Demo</h2>
+  </div>
+  <p>This runs the daemon's hot path <strong>entirely in your browser</strong> — no server, no network. A deterministic printer simulation feeds the same custody packetizer, policy evaluator, and BLAKE3 chain logic that ships in the Go daemon. Every hash below is computed with the identical domain-separation bytes; the empty Merkle root matches the Go test vector.</p>
+  <div class="demo-note"><b>faithful port</b> · scenarios.js → recorder.js → chain.js · BLAKE3 + SHA-256 via @noble/hashes · same (seed → frames → hash chain), so replay is bit-for-bit reproducible</div>
+
+  <div class="demo-controls">
+    <div class="demo-ctl-group" id="demo-scenarios">
+      <button class="demo-btn active" data-scenario="clean">Clean print</button>
+      <button class="demo-btn" data-scenario="thermal">Thermal excursion</button>
+      <button class="demo-btn" data-scenario="provenance">Provenance fault</button>
+    </div>
+    <div class="demo-ctl-sep"></div>
+    <div class="demo-ctl-group">
+      <button class="demo-btn" id="demo-play">▶ Play</button>
+      <button class="demo-btn" id="demo-step">Step ›</button>
+      <button class="demo-btn" id="demo-reset">↻ Reset</button>
+    </div>
+    <div class="demo-ctl-sep"></div>
+    <div class="demo-ctl-group">
+      <button class="demo-btn warn" id="demo-tamper" disabled>⚠ Tamper a packet</button>
+      <button class="demo-btn" id="demo-export" disabled>⤓ Export JSON</button>
+    </div>
+  </div>
+
+  <div class="demo-banner" id="demo-banner"></div>
+
+  <div class="demo-grid">
+    <!-- MACHINE -->
+    <div class="demo-panel">
+      <div class="demo-panel-hd">
+        <span>Fabrication Node · sfn-node-001</span>
+        <span class="state-pill standby" id="demo-state">standby</span>
+      </div>
+      <div class="machine-body">
+        <div class="gauge"><span class="gauge-lbl">tick / session</span><span class="gauge-val" id="g-tick" style="font-size:12px">— / —</span></div>
+        <div class="gauge"><span class="gauge-lbl">extruder</span><span class="gauge-val" id="g-ext">—<span class="unit">°C</span> <span class="tgt">/ —</span></span></div>
+        <div class="gauge"><span class="gauge-lbl">bed</span><span class="gauge-val" id="g-bed">—<span class="unit">°C</span> <span class="tgt">/ —</span></span></div>
+        <div class="gauge"><span class="gauge-lbl">chamber <span style="color:var(--white-faint)">(min 90)</span></span><span class="gauge-val" id="g-cham">—<span class="unit">°C</span></span></div>
+        <div class="gauge"><span class="gauge-lbl">toolhead velocity</span><span class="gauge-val" id="g-vel">—<span class="unit">mm/s</span></span></div>
+        <div class="gauge"><span class="gauge-lbl">source</span><span class="source-flag live" id="g-src">● awaiting</span></div>
+
+        <div class="verdict-box">
+          <div class="verdict-row">
+            <span class="verdict-tag none" id="v-tag">— IDLE</span>
+            <span class="verdict-meta" id="v-meta">no profile evaluated</span>
+          </div>
+          <div class="verdict-violations" id="v-viol"></div>
+        </div>
+      </div>
+      <div class="demo-stats" style="border-top:1px solid var(--rule-strong)">
+        <div class="stat"><div class="stat-num" id="s-pkts">0</div><div class="stat-lbl">packets</div></div>
+        <div class="stat"><div class="stat-num" id="s-faults">0</div><div class="stat-lbl">faults</div></div>
+        <div class="stat"><div class="stat-num" id="s-segs">0</div><div class="stat-lbl">segments</div></div>
+      </div>
+    </div>
+
+    <!-- LEDGER + LOG -->
+    <div style="display:flex; flex-direction:column; gap:16px">
+      <div class="demo-panel">
+        <div class="demo-panel-hd">
+          <span>Custody Ledger · BLAKE3 chain</span>
+          <span class="state-pill" id="demo-mpf">mpf: —</span>
+        </div>
+        <div class="ledger-body" id="demo-ledger"></div>
+      </div>
+      <div class="demo-panel">
+        <div class="demo-panel-hd"><span>Event Log</span></div>
+        <div class="log-body" id="demo-log"></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- §07 TRACK STATUS -->
+<section id="conform">
+  <div class="sec-hd">
+    <span class="sec-num">§ 07</span>
     <h2>Track Status</h2>
   </div>
   <p>Track 1 (the edge daemon) is complete and compiles. Track 2 (the certification standard) is in progress. The distinction matters: Track 1 is a working proof of custody. Track 2 is what makes custody economically meaningful.</p>
@@ -1107,10 +1332,10 @@ footer {
   </table>
 </section>
 
-<!-- §07 QUICK START -->
+<!-- §08 QUICK START -->
 <section id="start">
   <div class="sec-hd">
-    <span class="sec-num">§ 07</span>
+    <span class="sec-num">§ 08</span>
     <h2>Quick Start</h2>
   </div>
   <div class="terminal">
@@ -1202,6 +1427,249 @@ footer {
   window.addEventListener('scroll', update, {passive:true});
   update();
 })();
+</script>
+
+<script type="module">
+import { build } from "./assets/scenarios.js";
+import { computeRun, diffRuns } from "./assets/recorder.js";
+import { MPF } from "./assets/mpf.js";
+
+const $ = (id) => document.getElementById(id);
+const SPEED_MS = 150;
+
+let run, rec, HEAT = 0;
+let frameIdx = 0, gapCount = 0;
+let revealed = 0, segShown = 0, faultsShown = 0;
+let timer = null, tampered = false;
+
+const f1 = (x) => (x == null ? "—" : x.toFixed(1));
+
+function setState(s) {
+  const el = $("demo-state");
+  el.textContent = s;
+  el.className = "state-pill " + s;
+}
+
+function log(msg, cls = "") {
+  const line = document.createElement("div");
+  line.className = "log-line " + cls;
+  const ts = new Date(Date.parse("2026-05-28T00:00:00Z") + frameIdx * 1000)
+    .toISOString().slice(11, 19);
+  line.innerHTML = `<span class="lt">${ts}</span> ${msg}`;
+  const body = $("demo-log");
+  body.appendChild(line);
+  body.scrollTop = body.scrollHeight;
+}
+
+function loadScenario(id) {
+  pause();
+  run = build(id);
+  rec = computeRun(run, MPF);
+  HEAT = run.heatTicks;
+  document.querySelectorAll("#demo-scenarios .demo-btn").forEach((b) =>
+    b.classList.toggle("active", b.dataset.scenario === id));
+  $("demo-mpf").textContent = "mpf: " + rec.mpfId;
+  resetUI();
+  log(`scenario <b style="color:var(--teal)">${id}</b> loaded · seed=0x${(run.seed>>>0).toString(16)} · ${rec.packets.length} packets precomputed`);
+}
+
+function resetUI() {
+  pause();
+  frameIdx = 0; gapCount = 0; revealed = 0; segShown = 0; faultsShown = 0; tampered = false;
+  $("demo-ledger").innerHTML = "";
+  $("demo-log").innerHTML = "";
+  $("s-pkts").textContent = "0";
+  $("s-faults").textContent = "0";
+  $("s-segs").textContent = "0";
+  $("g-tick").textContent = "— / —";
+  $("g-ext").innerHTML = '—<span class="unit">°C</span> <span class="tgt">/ —</span>';
+  $("g-bed").innerHTML = '—<span class="unit">°C</span> <span class="tgt">/ —</span>';
+  $("g-cham").innerHTML = '—<span class="unit">°C</span>';
+  $("g-vel").innerHTML = '—<span class="unit">mm/s</span>';
+  $("g-src").className = "source-flag live"; $("g-src").textContent = "● awaiting";
+  $("v-tag").className = "verdict-tag none"; $("v-tag").textContent = "— IDLE";
+  $("v-meta").textContent = "no profile evaluated";
+  $("v-viol").textContent = "";
+  setState("standby");
+  $("demo-banner").className = "demo-banner";
+  $("demo-tamper").disabled = true; $("demo-tamper").textContent = "⚠ Tamper a packet";
+  $("demo-export").disabled = true;
+  $("demo-play").textContent = "▶ Play";
+}
+
+function gauge(el, val, target, badClass) {
+  let html = `${f1(val)}<span class="unit">°C</span>`;
+  if (target != null) html += ` <span class="tgt">/ ${f1(target)}</span>`;
+  const node = $(el);
+  node.innerHTML = html;
+  node.className = "gauge-val" + (badClass ? " " + badClass : "");
+}
+
+function applyFrame() {
+  if (!run) return;
+  if (frameIdx >= run.frames.length) { finish(); return; }
+  const i = frameIdx;
+  const frame = run.frames[i];
+  const st = frame.state;
+  $("g-tick").textContent = `${i} / ${run.frames.length - 1}`;
+
+  if (i < HEAT) {
+    setState("standby");
+    gauge("g-ext", st.extruder_temp, st.extruder_target);
+    gauge("g-bed", st.bed_temp, st.bed_target);
+    gauge("g-cham", st.chamber_temp, null, st.chamber_temp < 90 ? "warn" : "");
+    gauge("g-vel", 0);
+    $("g-src").className = "source-flag live"; $("g-src").textContent = "● live (heating)";
+    $("v-tag").className = "verdict-tag none"; $("v-tag").textContent = "— PRE-PRINT";
+    $("v-meta").textContent = "not yet recording";
+    if (i === 0) log("pre-print heating — print not active, not recorded", "warn");
+  } else if (i - HEAT < rec.packets.length) {
+    const pkt = rec.packets[i - HEAT];
+    setState("printing");
+    if (i === HEAT) log(`custody: new session started session_id=${rec.sessionID.slice(0,16)}…`, "tpm");
+
+    if (frame.deltaArrived) { gapCount = 0; $("g-src").className = "source-flag live"; $("g-src").textContent = "● live"; }
+    else { gapCount++; $("g-src").className = "source-flag silent"; $("g-src").textContent = `● SOURCE SILENT (${gapCount}s)`; }
+
+    const tel = pkt.telemetry;
+    const extOff = !pkt.verdict.pass && pkt.verdict.violations.some(v => v.includes("extruder"));
+    gauge("g-ext", tel.extruder_temp, tel.extruder_target, extOff ? "off" : "");
+    gauge("g-bed", tel.bed_temp, tel.bed_target);
+    gauge("g-cham", tel.chamber_temp, null, tel.chamber_temp < 90 ? "off" : "");
+    gauge("g-vel", tel.live_velocity);
+
+    if (pkt.verdict.pass) {
+      $("v-tag").className = "verdict-tag pass"; $("v-tag").textContent = "✓ PASS";
+      $("v-meta").textContent = pkt.verdict.profile_id;
+      $("v-viol").textContent = "";
+    } else {
+      $("v-tag").className = "verdict-tag fail"; $("v-tag").textContent = "✗ FAIL";
+      $("v-meta").textContent = pkt.verdict.profile_id;
+      $("v-viol").innerHTML = pkt.verdict.violations.map(v => "› " + v).join("<br>");
+    }
+
+    appendPktRow(pkt);
+    revealed++;
+    $("s-pkts").textContent = revealed;
+
+    const fault = rec.faults.find(f => f.seq === pkt.seq);
+    if (fault) {
+      faultsShown++;
+      $("s-faults").textContent = faultsShown;
+      log(`custody: PROVENANCE FAULT — ${fault.reason} (silent ${fault.silent_ticks}s)`, "err");
+    }
+    if (pkt.quoted) log(`tpm: TPM2_Quote sealed @ seq ${pkt.seq} (PCR 10,11,12,15)`, "tpm");
+
+    const seg = rec.segments.find(s => s.seq_end === pkt.seq);
+    if (seg) {
+      segShown++;
+      $("s-segs").textContent = segShown;
+      log(`uploader: segment sealed seq ${seg.seq_start}–${seg.seq_end} · merkle ${seg.merkle_root.slice(0,12)}…`, "ok");
+    }
+  } else {
+    setState("complete");
+    gauge("g-ext", st.extruder_temp, st.extruder_target);
+    gauge("g-bed", st.bed_temp, st.bed_target);
+    gauge("g-cham", st.chamber_temp);
+    gauge("g-vel", 0);
+    $("g-src").className = "source-flag live"; $("g-src").textContent = "● live";
+    $("v-tag").className = "verdict-tag none"; $("v-tag").textContent = "— COMPLETE";
+    $("v-meta").textContent = "print finished";
+  }
+  frameIdx++;
+  if (frameIdx >= run.frames.length) finish();
+}
+
+function appendPktRow(pkt, broken = false, diverge = false) {
+  const row = document.createElement("div");
+  row.className = "pkt-row" + (broken ? " broken" : "") + (diverge ? " diverge" : "");
+  const dot = pkt.verdict.pass ? "pass" : "fail";
+  const badges = [];
+  if (pkt.quoted) badges.push('<span class="pkt-badge quote">⚿ quote</span>');
+  row.innerHTML =
+    `<span class="pkt-seq">#${pkt.seq}</span>` +
+    `<span class="pkt-dot ${dot}"></span>` +
+    `<span class="pkt-hash">b3:${pkt.packet_blake3.slice(0,28)}…</span>` +
+    `<span class="pkt-badges">${badges.join("")}</span>`;
+  const body = $("demo-ledger");
+  body.appendChild(row);
+  body.scrollTop = body.scrollHeight;
+}
+
+function finish() {
+  pause();
+  $("demo-play").textContent = "▶ Play";
+  $("demo-tamper").disabled = tampered;
+  $("demo-export").disabled = false;
+  if (!tampered) {
+    log("session complete · chain intact", "ok");
+    const b = $("demo-banner");
+    b.className = "demo-banner intact";
+    b.innerHTML = `✓ chain intact — ${revealed} packets, ${segShown} Merkle segments, ${faultsShown} provenance fault(s). Deterministic: replay this seed for a bit-identical chain.`;
+  }
+}
+
+function play() {
+  if (!run) return;
+  if (frameIdx >= run.frames.length) { resetUI(); }
+  if (timer) return;
+  $("demo-play").textContent = "⏸ Pause";
+  timer = setInterval(applyFrame, SPEED_MS);
+}
+function pause() {
+  if (timer) { clearInterval(timer); timer = null; }
+  const p = $("demo-play"); if (p) p.textContent = "▶ Play";
+}
+
+function tamper() {
+  pause();
+  while (frameIdx < run.frames.length) applyFrame();
+  const T = Math.min(28, rec.packets.length - 1);
+  const tgt = rec.packets[T].telemetry.extruder_target;
+  const tam = computeRun(run, MPF, { atSeq: T, field: "extruder_temp", value: tgt + 60 });
+  const diff = diffRuns(rec, tam);
+  tampered = true;
+
+  $("demo-ledger").innerHTML = "";
+  tam.packets.forEach((p) =>
+    appendPktRow(p, p.seq >= diff.firstDiverge, p.seq === diff.firstDiverge));
+  const firstRow = $("demo-ledger").children[diff.firstDiverge];
+  if (firstRow) firstRow.scrollIntoView({ block: "center" });
+
+  const b = $("demo-banner");
+  b.className = "demo-banner broken";
+  b.innerHTML = `✗ tampered seq ${T} (extruder_temp → ${(tgt+60).toFixed(0)}°C). ` +
+    `Chain diverges at seq <b>${diff.firstDiverge}</b> and every packet after it — ` +
+    `${diff.changedSegments.length} of ${rec.segments.length} Merkle roots invalidated. One edit, total detection.`;
+  log(`VERIFY: forged seq ${T} → BLAKE3 mismatch at seq ${diff.firstDiverge}; segments [${diff.changedSegments.join(", ")}] fail re-derivation`, "err");
+  $("demo-tamper").disabled = true;
+  $("demo-tamper").textContent = "⚠ tampered";
+}
+
+function exportJSON() {
+  const out = {
+    scenario: run.scenarioId, seed: run.seed,
+    session_id: rec.sessionID, mpf_id: rec.mpfId,
+    packets: rec.packets.map(({ b3bytes, ...p }) => p),
+    faults: rec.faults, segments: rec.segments,
+  };
+  const blob = new Blob([JSON.stringify(out, null, 2)], { type: "application/json" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = `axm-sfn-${run.scenarioId}-${rec.sessionID.slice(0,8)}.json`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+document.querySelectorAll("#demo-scenarios .demo-btn").forEach((b) =>
+  b.addEventListener("click", () => loadScenario(b.dataset.scenario)));
+$("demo-play").addEventListener("click", () => (timer ? pause() : play()));
+$("demo-step").addEventListener("click", () => { pause(); applyFrame(); });
+$("demo-reset").addEventListener("click", resetUI);
+$("demo-tamper").addEventListener("click", tamper);
+$("demo-export").addEventListener("click", exportJSON);
+
+loadScenario("clean");
 </script>
 
 </body>
