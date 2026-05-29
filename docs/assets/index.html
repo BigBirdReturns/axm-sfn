@@ -656,9 +656,656 @@ body {
 </div>
 
 <script type="module">
-import { build }         from "../assets/scenarios.js";
-import { computeRun, diffRuns } from "../assets/recorder.js";
-import { MPF }           from "../assets/mpf.js";
+// ── hashes (blake3 + sha256) ─────────────────────────────────────────────────
+const { blake3, sha256, bytesToHex, hexToBytes, utf8ToBytes } = (() => {
+function at(e){return e instanceof Uint8Array||ArrayBuffer.isView(e)&&e.constructor.name==="Uint8Array"}function G(e){if(!Number.isSafeInteger(e)||e<0)throw new Error("positive integer expected, got "+e)}function E(e,...t){if(!at(e))throw new Error("Uint8Array expected");if(t.length>0&&!t.includes(e.length))throw new Error("Uint8Array expected of length "+t+", got length="+e.length)}function O(e,t=!0){if(e.destroyed)throw new Error("Hash instance has been destroyed");if(t&&e.finished)throw new Error("Hash#digest() has already been called")}function T(e,t){E(e);let s=t.outputLen;if(e.length<s)throw new Error("digestInto() expects output buffer of length at least "+s)}function q(e){return new Uint8Array(e.buffer,e.byteOffset,e.byteLength)}function F(e){return new Uint32Array(e.buffer,e.byteOffset,Math.floor(e.byteLength/4))}function m(...e){for(let t=0;t<e.length;t++)e[t].fill(0)}function R(e){return new DataView(e.buffer,e.byteOffset,e.byteLength)}function y(e,t){return e<<32-t|e>>>t}var Q=new Uint8Array(new Uint32Array([287454020]).buffer)[0]===68;function Z(e){return e<<24&4278190080|e<<8&16711680|e>>>8&65280|e>>>24&255}var $=Q?e=>e:e=>Z(e);function ut(e){for(let t=0;t<e.length;t++)e[t]=Z(e[t]);return e}var g=Q?e=>e:ut,tt=typeof Uint8Array.from([]).toHex=="function"&&typeof Uint8Array.fromHex=="function",lt=Array.from({length:256},(e,t)=>t.toString(16).padStart(2,"0"));function xt(e){if(E(e),tt)return e.toHex();let t="";for(let s=0;s<e.length;s++)t+=lt[e[s]];return t}var L={_0:48,_9:57,A:65,F:70,a:97,f:102};function J(e){if(e>=L._0&&e<=L._9)return e-L._0;if(e>=L.A&&e<=L.F)return e-(L.A-10);if(e>=L.a&&e<=L.f)return e-(L.a-10)}function dt(e){if(typeof e!="string")throw new Error("hex string expected, got "+typeof e);if(tt)return Uint8Array.fromHex(e);let t=e.length,s=t/2;if(t%2)throw new Error("hex string expected, got unpadded hex of length "+t);let n=new Uint8Array(s);for(let r=0,i=0;r<s;r++,i+=2){let h=J(e.charCodeAt(i)),o=J(e.charCodeAt(i+1));if(h===void 0||o===void 0){let c=e[i]+e[i+1];throw new Error('hex string expected, got non-hex character "'+c+'" at index '+i)}n[r]=h*16+o}return n}function et(e){if(typeof e!="string")throw new Error("string expected");return new Uint8Array(new TextEncoder().encode(e))}function _(e){return typeof e=="string"&&(e=et(e)),E(e),e}var V=class{};function st(e){let t=n=>e().update(_(n)).digest(),s=e();return t.outputLen=s.outputLen,t.blockLen=s.blockLen,t.create=()=>e(),t}function it(e){let t=(n,r)=>e(r).update(_(n)).digest(),s=e({});return t.outputLen=s.outputLen,t.blockLen=s.blockLen,t.create=n=>e(n),t}function bt(e,t,s,n){if(typeof e.setBigUint64=="function")return e.setBigUint64(t,s,n);let r=BigInt(32),i=BigInt(4294967295),h=Number(s>>r&i),o=Number(s&i),c=n?4:0,a=n?0:4;e.setUint32(t+c,h,n),e.setUint32(t+a,o,n)}function nt(e,t,s){return e&t^~e&s}function rt(e,t,s){return e&t^e&s^t&s}var K=class extends V{constructor(t,s,n,r){super(),this.finished=!1,this.length=0,this.pos=0,this.destroyed=!1,this.blockLen=t,this.outputLen=s,this.padOffset=n,this.isLE=r,this.buffer=new Uint8Array(t),this.view=R(this.buffer)}update(t){O(this),t=_(t),E(t);let{view:s,buffer:n,blockLen:r}=this,i=t.length;for(let h=0;h<i;){let o=Math.min(r-this.pos,i-h);if(o===r){let c=R(t);for(;r<=i-h;h+=r)this.process(c,h);continue}n.set(t.subarray(h,h+o),this.pos),this.pos+=o,h+=o,this.pos===r&&(this.process(s,0),this.pos=0)}return this.length+=t.length,this.roundClean(),this}digestInto(t){O(this),T(t,this),this.finished=!0;let{buffer:s,view:n,blockLen:r,isLE:i}=this,{pos:h}=this;s[h++]=128,m(this.buffer.subarray(h)),this.padOffset>r-h&&(this.process(n,0),h=0);for(let f=h;f<r;f++)s[f]=0;bt(n,r-8,BigInt(this.length*8),i),this.process(n,0);let o=R(t),c=this.outputLen;if(c%4)throw new Error("_sha2: outputLen should be aligned to 32bit");let a=c/4,u=this.get();if(a>u.length)throw new Error("_sha2: outputLen bigger than state");for(let f=0;f<a;f++)o.setUint32(4*f,u[f],i)}digest(){let{buffer:t,outputLen:s}=this;this.digestInto(t);let n=t.slice(0,s);return this.destroy(),n}_cloneInto(t){t||(t=new this.constructor),t.set(...this.get());let{blockLen:s,buffer:n,length:r,finished:i,destroyed:h,pos:o}=this;return t.destroyed=h,t.finished=i,t.length=r,t.pos=o,r%s&&t.buffer.set(n),t}clone(){return this._cloneInto()}},I=Uint32Array.from([1779033703,3144134277,1013904242,2773480762,1359893119,2600822924,528734635,1541459225]);var X=BigInt(4294967295),ht=BigInt(32);function j(e,t=!1){return t?{h:Number(e&X),l:Number(e>>ht&X)}:{h:Number(e>>ht&X)|0,l:Number(e&X)|0}}function S(e,t,s,n,r){return e=e+t+r|0,n=y(n^e,16),s=s+n|0,t=y(t^s,12),{a:e,b:t,c:s,d:n}}function U(e,t,s,n,r){return e=e+t+r|0,n=y(n^e,8),s=s+n|0,t=y(t^s,7),{a:e,b:t,c:s,d:n}}var P=class extends V{constructor(t,s){super(),this.finished=!1,this.destroyed=!1,this.length=0,this.pos=0,G(t),G(s),this.blockLen=t,this.outputLen=s,this.buffer=new Uint8Array(t),this.buffer32=F(this.buffer)}update(t){O(this),t=_(t),E(t);let{blockLen:s,buffer:n,buffer32:r}=this,i=t.length,h=t.byteOffset,o=t.buffer;for(let c=0;c<i;){this.pos===s&&(g(r),this.compress(r,0,!1),g(r),this.pos=0);let a=Math.min(s-this.pos,i-c),u=h+c;if(a===s&&!(u%4)&&c+a<i){let f=new Uint32Array(o,u,Math.floor((i-c)/4));g(f);for(let l=0;c+s<i;l+=r.length,c+=s)this.length+=s,this.compress(f,l,!1);g(f);continue}n.set(t.subarray(c,c+a),this.pos),this.pos+=a,this.length+=a,c+=a}return this}digestInto(t){O(this),T(t,this);let{pos:s,buffer32:n}=this;this.finished=!0,m(this.buffer.subarray(s)),g(n),this.compress(n,0,!0),g(n);let r=F(t);this.get().forEach((i,h)=>r[h]=$(i))}digest(){let{buffer:t,outputLen:s}=this;this.digestInto(t);let n=t.slice(0,s);return this.destroy(),n}_cloneInto(t){let{buffer:s,length:n,finished:r,destroyed:i,outputLen:h,pos:o}=this;return t||(t=new this.constructor({dkLen:h})),t.set(...this.get()),t.buffer.set(s),t.destroyed=i,t.finished=r,t.length=n,t.pos=o,t.outputLen=h,t}clone(){return this._cloneInto()}};function Y(e,t,s,n,r,i,h,o,c,a,u,f,l,d,p,b,A,w,B,H){let x=0;for(let v=0;v<n;v++)({a:r,b:c,c:l,d:A}=S(r,c,l,A,s[t+e[x++]])),{a:r,b:c,c:l,d:A}=U(r,c,l,A,s[t+e[x++]]),{a:i,b:a,c:d,d:w}=S(i,a,d,w,s[t+e[x++]]),{a:i,b:a,c:d,d:w}=U(i,a,d,w,s[t+e[x++]]),{a:h,b:u,c:p,d:B}=S(h,u,p,B,s[t+e[x++]]),{a:h,b:u,c:p,d:B}=U(h,u,p,B,s[t+e[x++]]),{a:o,b:f,c:b,d:H}=S(o,f,b,H,s[t+e[x++]]),{a:o,b:f,c:b,d:H}=U(o,f,b,H,s[t+e[x++]]),{a:r,b:a,c:p,d:H}=S(r,a,p,H,s[t+e[x++]]),{a:r,b:a,c:p,d:H}=U(r,a,p,H,s[t+e[x++]]),{a:i,b:u,c:b,d:A}=S(i,u,b,A,s[t+e[x++]]),{a:i,b:u,c:b,d:A}=U(i,u,b,A,s[t+e[x++]]),{a:h,b:f,c:l,d:w}=S(h,f,l,w,s[t+e[x++]]),{a:h,b:f,c:l,d:w}=U(h,f,l,w,s[t+e[x++]]),{a:o,b:c,c:d,d:B}=S(o,c,d,B,s[t+e[x++]]),{a:o,b:c,c:d,d:B}=U(o,c,d,B,s[t+e[x++]]);return{v0:r,v1:i,v2:h,v3:o,v4:c,v5:a,v6:u,v7:f,v8:l,v9:d,v10:p,v11:b,v12:A,v13:w,v14:B,v15:H}}var k={CHUNK_START:1,CHUNK_END:2,PARENT:4,ROOT:8,KEYED_HASH:16,DERIVE_KEY_CONTEXT:32,DERIVE_KEY_MATERIAL:64},D=I.slice(),ot=(()=>{let e=Array.from({length:16},(n,r)=>r),t=n=>[2,6,3,10,7,0,4,13,1,11,12,5,9,14,15,8].map(r=>n[r]),s=[];for(let n=0,r=e;n<7;n++,r=t(r))s.push(...r);return Uint8Array.from(s)})(),z=class e extends P{constructor(t={},s=0){super(64,t.dkLen===void 0?32:t.dkLen),this.chunkPos=0,this.chunksDone=0,this.flags=0,this.stack=[],this.posOut=0,this.bufferOut32=new Uint32Array(16),this.chunkOut=0,this.enableXOF=!0;let{key:n,context:r}=t,i=r!==void 0;if(n!==void 0){if(i)throw new Error('Only "key" or "context" can be specified at same time');let h=_(n).slice();E(h,32),this.IV=F(h),g(this.IV),this.flags=s|k.KEYED_HASH}else if(i){let h=_(r),o=new e({dkLen:32},k.DERIVE_KEY_CONTEXT).update(h).digest();this.IV=F(o),g(this.IV),this.flags=s|k.DERIVE_KEY_MATERIAL}else this.IV=D.slice(),this.flags=s;this.state=this.IV.slice(),this.bufferOut=q(this.bufferOut32)}get(){return[]}set(){}b2Compress(t,s,n,r=0){let{state:i,pos:h}=this,{h:o,l:c}=j(BigInt(t),!0),{v0:a,v1:u,v2:f,v3:l,v4:d,v5:p,v6:b,v7:A,v8:w,v9:B,v10:H,v11:x,v12:v,v13:N,v14:M,v15:ft}=Y(ot,r,n,7,i[0],i[1],i[2],i[3],i[4],i[5],i[6],i[7],D[0],D[1],D[2],D[3],o,c,h,s);i[0]=a^w,i[1]=u^B,i[2]=f^H,i[3]=l^x,i[4]=d^v,i[5]=p^N,i[6]=b^M,i[7]=A^ft}compress(t,s=0,n=!1){let r=this.flags;if(this.chunkPos||(r|=k.CHUNK_START),(this.chunkPos===15||n)&&(r|=k.CHUNK_END),n||(this.pos=this.blockLen),this.b2Compress(this.chunksDone,r,t,s),this.chunkPos+=1,this.chunkPos===16||n){let i=this.state;this.state=this.IV.slice();for(let h,o=this.chunksDone+1;(n||!(o&1))&&(h=this.stack.pop());o>>=1)this.buffer32.set(h,0),this.buffer32.set(i,8),this.pos=this.blockLen,this.b2Compress(0,this.flags|k.PARENT,this.buffer32,0),i=this.state,this.state=this.IV.slice();this.chunksDone++,this.chunkPos=0,this.stack.push(i)}this.pos=0}_cloneInto(t){t=super._cloneInto(t);let{IV:s,flags:n,state:r,chunkPos:i,posOut:h,chunkOut:o,stack:c,chunksDone:a}=this;return t.state.set(r.slice()),t.stack=c.map(u=>Uint32Array.from(u)),t.IV.set(s),t.flags=n,t.chunkPos=i,t.chunksDone=a,t.posOut=h,t.chunkOut=o,t.enableXOF=this.enableXOF,t.bufferOut32.set(this.bufferOut32),t}destroy(){this.destroyed=!0,m(this.state,this.buffer32,this.IV,this.bufferOut32),m(...this.stack)}b2CompressOut(){let{state:t,pos:s,flags:n,buffer32:r,bufferOut32:i}=this,{h,l:o}=j(BigInt(this.chunkOut++));g(r);let{v0:c,v1:a,v2:u,v3:f,v4:l,v5:d,v6:p,v7:b,v8:A,v9:w,v10:B,v11:H,v12:x,v13:v,v14:N,v15:M}=Y(ot,0,r,7,t[0],t[1],t[2],t[3],t[4],t[5],t[6],t[7],D[0],D[1],D[2],D[3],o,h,s,n);i[0]=c^A,i[1]=a^w,i[2]=u^B,i[3]=f^H,i[4]=l^x,i[5]=d^v,i[6]=p^N,i[7]=b^M,i[8]=t[0]^A,i[9]=t[1]^w,i[10]=t[2]^B,i[11]=t[3]^H,i[12]=t[4]^x,i[13]=t[5]^v,i[14]=t[6]^N,i[15]=t[7]^M,g(r),g(i),this.posOut=0}finish(){if(this.finished)return;this.finished=!0,m(this.buffer.subarray(this.pos));let t=this.flags|k.ROOT;this.stack.length?(t|=k.PARENT,g(this.buffer32),this.compress(this.buffer32,0,!0),g(this.buffer32),this.chunksDone=0,this.pos=this.blockLen):t|=(this.chunkPos?0:k.CHUNK_START)|k.CHUNK_END,this.flags=t,this.b2CompressOut()}writeInto(t){O(this,!1),E(t),this.finish();let{blockLen:s,bufferOut:n}=this;for(let r=0,i=t.length;r<i;){this.posOut>=s&&this.b2CompressOut();let h=Math.min(s-this.posOut,i-r);t.set(n.subarray(this.posOut,this.posOut+h),r),this.posOut+=h,r+=h}return t}xofInto(t){if(!this.enableXOF)throw new Error("XOF is not possible after digest call");return this.writeInto(t)}xof(t){return G(t),this.xofInto(new Uint8Array(t))}digestInto(t){if(T(t,this),this.finished)throw new Error("digest() was already called");return this.enableXOF=!1,this.writeInto(t),this.destroy(),t}digest(){return this.digestInto(new Uint8Array(this.outputLen))}},pt=it(e=>new z(e));var yt=Uint32Array.from([1116352408,1899447441,3049323471,3921009573,961987163,1508970993,2453635748,2870763221,3624381080,310598401,607225278,1426881987,1925078388,2162078206,2614888103,3248222580,3835390401,4022224774,264347078,604807628,770255983,1249150122,1555081692,1996064986,2554220882,2821834349,2952996808,3210313671,3336571891,3584528711,113926993,338241895,666307205,773529912,1294757372,1396182291,1695183700,1986661051,2177026350,2456956037,2730485921,2820302411,3259730800,3345764771,3516065817,3600352804,4094571909,275423344,430227734,506948616,659060556,883997877,958139571,1322822218,1537002063,1747873779,1955562222,2024104815,2227730452,2361852424,2428436474,2756734187,3204031479,3329325298]),C=new Uint32Array(64),W=class extends K{constructor(t=32){super(64,t,8,!1),this.A=I[0]|0,this.B=I[1]|0,this.C=I[2]|0,this.D=I[3]|0,this.E=I[4]|0,this.F=I[5]|0,this.G=I[6]|0,this.H=I[7]|0}get(){let{A:t,B:s,C:n,D:r,E:i,F:h,G:o,H:c}=this;return[t,s,n,r,i,h,o,c]}set(t,s,n,r,i,h,o,c){this.A=t|0,this.B=s|0,this.C=n|0,this.D=r|0,this.E=i|0,this.F=h|0,this.G=o|0,this.H=c|0}process(t,s){for(let f=0;f<16;f++,s+=4)C[f]=t.getUint32(s,!1);for(let f=16;f<64;f++){let l=C[f-15],d=C[f-2],p=y(l,7)^y(l,18)^l>>>3,b=y(d,17)^y(d,19)^d>>>10;C[f]=b+C[f-7]+p+C[f-16]|0}let{A:n,B:r,C:i,D:h,E:o,F:c,G:a,H:u}=this;for(let f=0;f<64;f++){let l=y(o,6)^y(o,11)^y(o,25),d=u+l+nt(o,c,a)+yt[f]+C[f]|0,b=(y(n,2)^y(n,13)^y(n,22))+rt(n,r,i)|0;u=a,a=c,c=o,o=h+d|0,h=i,i=r,r=n,n=d+b|0}n=n+this.A|0,r=r+this.B|0,i=i+this.C|0,h=h+this.D|0,o=o+this.E|0,c=c+this.F|0,a=a+this.G|0,u=u+this.H|0,this.set(n,r,i,h,o,c,a,u)}roundClean(){m(C)}destroy(){this.set(0,0,0,0,0,0,0,0),m(this.buffer)}};var ct=st(()=>new W);var gt=ct;return{blake3:pt,bytesToHex:xt,hexToBytes:dt,sha256:gt,utf8ToBytes:et};
+/*! Bundled license information:
+
+@noble/hashes/esm/utils.js:
+  (*! noble-hashes - MIT License (c) 2022 Paul Miller (paulmillr.com) *)
+*/
+})();
+
+// ── chain ─────────────────────────────────────────────────────────────────────
+// Faithful JS port of the axm-sfn cryptographic chain constructions.
+//
+// Every hash here uses the SAME algorithm and domain-separation bytes as the
+// Go daemon. Cross-references:
+//   - computePacketBLAKE3  -> internal/custody/packetizer.go
+//   - computeMerkleRoot    -> internal/uploader/uploader.go
+//   - canonical packet     -> internal/telemetry/packet.go (CustodyPacket json tags)
+//
+// The empty Merkle root BLAKE3(0x01) is asserted against the Go test vector
+// in internal/uploader/merkle_test.go: 48fc721f...188652b.
+
+
+
+const enc = new TextEncoder();
+
+// uint64 little-endian, matching binary.LittleEndian.PutUint64.
+function u64le(n) {
+  const b = new Uint8Array(8);
+  let v = BigInt(n);
+  for (let i = 0; i < 8; i++) {
+    b[i] = Number(v & 0xffn);
+    v >>= 8n;
+  }
+  return b;
+}
+
+function concat(...parts) {
+  let len = 0;
+  for (const p of parts) len += p.length;
+  const out = new Uint8Array(len);
+  let off = 0;
+  for (const p of parts) {
+    out.set(p, off);
+    off += p.length;
+  }
+  return out;
+}
+
+// canonicalPacketBytes serializes the pre-hash CustodyPacket fields in the exact
+// struct field order from internal/telemetry/packet.go, honoring the same
+// omitempty rules. This is the byte payload that gets SHA-256'd and folded into
+// the BLAKE3 chain link.
+function canonicalPacketBytes(pkt) {
+  // Stable, ordered key/value pairs. Mirrors Go struct json tags + order.
+  const parts = [];
+  const add = (k, v) => parts.push(JSON.stringify(k) + ":" + JSON.stringify(v));
+
+  add("session_id", pkt.session_id);
+  add("node_label", pkt.node_label);
+  add("printer_id", pkt.printer_id);
+  add("seq", pkt.seq);
+  add("tick", pkt.tick);
+  add("tick_mono_ns", pkt.tick_mono_ns);
+  add("extruder_temp", round3(pkt.extruder_temp));
+  add("extruder_target", round3(pkt.extruder_target));
+  add("extruder_power", round3(pkt.extruder_power));
+  add("bed_temp", round3(pkt.bed_temp));
+  add("bed_target", round3(pkt.bed_target));
+  add("bed_power", round3(pkt.bed_power));
+  if (pkt.chamber_present) {
+    add("chamber_temp", round3(pkt.chamber_temp));
+    add("chamber_present", true);
+  }
+  add("live_velocity", round3(pkt.live_velocity));
+  add("live_extruder_velocity", round3(pkt.live_extruder_velocity));
+  add("live_position", pkt.live_position);
+  add("print_state", pkt.print_state);
+  add("filament_used_mm", round3(pkt.filament_used_mm));
+  add("print_duration_s", round3(pkt.print_duration_s));
+  add("mcu_version", pkt.mcu_version);
+  add("mcu_build_versions", pkt.mcu_build_versions);
+  if (pkt.decision) add("decision", pkt.decision);
+  if (pkt.prev_packet_blake3) add("prev_packet_blake3", pkt.prev_packet_blake3);
+
+  return enc.encode("{" + parts.join(",") + "}");
+}
+
+function round3(x) {
+  return Math.round((x + Number.EPSILON) * 1000) / 1000;
+}
+
+// sha256Hex returns the SHA-256 of the canonical payload (the digest the TPM
+// would sign). Matches sha256.Sum256(canonical) in the Go hot path.
+function sha256Hex(canonicalBytes) {
+  return bytesToHex(sha256(canonicalBytes));
+}
+
+// packetBlake3 reproduces computePacketBLAKE3:
+//   BLAKE3( 0x00 || seq_le8 || session_id || canonical || tpm_sig? || prev_hash? )
+// 0x00 is the AXM Genesis leaf domain byte. tpm_sig and prev_hash are appended
+// only when present (software-only mode omits tpm_sig, seq 0 omits prev_hash).
+function packetBlake3(seq, sessionID, canonicalBytes, tpmSigBytes, prevHashBytes) {
+  const parts = [
+    new Uint8Array([0x00]),
+    u64le(seq),
+    utf8ToBytes(sessionID),
+    canonicalBytes,
+  ];
+  if (tpmSigBytes) parts.push(tpmSigBytes);
+  if (prevHashBytes) parts.push(prevHashBytes);
+  return blake3(concat(...parts));
+}
+
+// ── Merkle root (AXM Genesis convention, mirrors uploader.computeMerkleRoot) ──
+//   Leaf:  BLAKE3( 0x00 || index_le8 || 0x00 || packet_blake3 )
+//   Node:  BLAKE3( 0x01 || left || right )
+//   Odd:   promote last element unchanged (RFC 6962)
+//   Empty: BLAKE3( 0x01 )
+function merkleRoot(packetHashes) {
+  if (packetHashes.length === 0) {
+    return blake3(new Uint8Array([0x01]));
+  }
+  let level = packetHashes.map((h, i) =>
+    blake3(concat(new Uint8Array([0x00]), u64le(i), new Uint8Array([0x00]), h))
+  );
+  while (level.length > 1) {
+    const next = [];
+    for (let i = 0; i + 1 < level.length; i += 2) {
+      next.push(blake3(concat(new Uint8Array([0x01]), level[i], level[i + 1])));
+    }
+    if (level.length % 2 === 1) next.push(level[level.length - 1]);
+    level = next;
+  }
+  return level[0];
+}
+
+// simulatedTpmSig generates a deterministic stand-in for a TPM2_Sign RSA-PSS
+// signature so the demo can show the per-packet hardware-attestation field.
+// On a provisioned node this comes from the TPM 2.0 chip over the SHA-256
+// digest; here it is derived deterministically and clearly labeled as such.
+function simulatedTpmSig(sha256hex) {
+  return blake3(utf8ToBytes("SIM-TPM2-RSAPSS:" + sha256hex));
+}
+
+// ── policy ────────────────────────────────────────────────────────────────────
+// Faithful JS port of internal/policy/engine.go.
+//
+// Same rule types (absolute_minimum, absolute_maximum, dynamic_offset), same
+// grace-window semantics: a violation only escalates to a verdict failure once
+// the consecutive AND total allowances are both exhausted; the consecutive
+// counter resets on any passing custody tick. Null profile passes everything.
+
+class PolicyEngine {
+  constructor() {
+    this.profile = null;
+    this.consecutive = {};
+    this.total = {};
+  }
+
+  loadProfile(profile) {
+    if (!profile || !profile.profile_id) throw new Error("profile_id required");
+    this.profile = profile;
+    this.consecutive = {};
+    this.total = {};
+  }
+
+  clearProfile() {
+    this.profile = null;
+    this.consecutive = {};
+    this.total = {};
+  }
+
+  // evaluate runs the active profile against a flat {field: value} map.
+  evaluate(telemetry) {
+    if (!this.profile) return { pass: true, profile_id: "null", violations: [] };
+
+    const violations = [];
+    for (const rule of this.profile.validation_rules) {
+      const val = telemetry[rule.field];
+      if (val === undefined) continue; // sensor absent — skip silently
+
+      let violated = false;
+      let reason = "";
+
+      switch (rule.rule_type) {
+        case "absolute_minimum":
+          if (val < rule.min_value) {
+            violated = true;
+            reason = `${rule.field}=${fmt(val)} below minimum ${fmt(rule.min_value)}`;
+          }
+          break;
+        case "absolute_maximum":
+          if (val > rule.max_value) {
+            violated = true;
+            reason = `${rule.field}=${fmt(val)} above maximum ${fmt(rule.max_value)}`;
+          }
+          break;
+        case "dynamic_offset": {
+          const target = telemetry[rule.target_field];
+          if (target === undefined) continue;
+          const delta = val - target;
+          const negDev = rule.max_negative_deviation || 0;
+          const posDev = rule.max_positive_deviation || 0;
+          if (delta < -negDev || delta > posDev) {
+            violated = true;
+            reason = `${rule.field} delta=${fmt(delta)} outside envelope [${fmt(-negDev)}, +${fmt(posDev)}] (target=${fmt(target)})`;
+          }
+          break;
+        }
+        default:
+          continue;
+      }
+
+      if (violated) {
+        this.consecutive[rule.field] = (this.consecutive[rule.field] || 0) + 1;
+        this.total[rule.field] = (this.total[rule.field] || 0) + 1;
+        const maxConsec = rule.allowed_consecutive_violation_epochs || 0;
+        const maxTotal = rule.allowed_total_violation_epochs || 0;
+        if (
+          (maxConsec === 0 || this.consecutive[rule.field] > maxConsec) &&
+          (maxTotal === 0 || this.total[rule.field] > maxTotal)
+        ) {
+          violations.push(reason);
+        }
+      } else {
+        this.consecutive[rule.field] = 0;
+      }
+    }
+
+    return {
+      pass: violations.length === 0,
+      profile_id: this.profile.profile_id,
+      violations,
+    };
+  }
+}
+
+// telemetryFromCustody mirrors policy.TelemetryFromCustody — chamber key is only
+// present when the sensor reported.
+function telemetryFromCustody(s) {
+  const m = {
+    "extruder.temperature": s.extruder_temp,
+    "extruder.target": s.extruder_target,
+    "extruder.power": s.extruder_power,
+    "heater_bed.temperature": s.bed_temp,
+    "heater_bed.target": s.bed_target,
+    "heater_bed.power": s.bed_power,
+    "motion_report.live_velocity": s.live_velocity,
+    "motion_report.live_extruder_velocity": s.live_extruder_velocity,
+  };
+  if (s.chamber_present) m["temperature_sensor.chamber.temperature"] = s.chamber_temp;
+  return m;
+}
+
+function fmt(x) {
+  return (Math.round(x * 1000) / 1000).toFixed(3);
+}
+
+// ── mpf ───────────────────────────────────────────────────────────────────────
+// Material-Process Profile, inlined from schema/mpf/mat-asa-prosumer-v1.0.json
+// so the demo needs no fetch() (works on file:// and GitHub Pages alike).
+const MPF = {
+  profile_id: "mat-asa-prosumer-v1.0",
+  material_cooldown_allowance_s: 300,
+  validation_rules: [
+    {
+      field: "extruder.temperature",
+      target_field: "extruder.target",
+      rule_type: "dynamic_offset",
+      max_negative_deviation: 5.0,
+      max_positive_deviation: 10.0,
+      allowed_consecutive_violation_epochs: 3,
+    },
+    {
+      field: "heater_bed.temperature",
+      target_field: "heater_bed.target",
+      rule_type: "dynamic_offset",
+      max_negative_deviation: 3.0,
+      max_positive_deviation: 5.0,
+      allowed_consecutive_violation_epochs: 5,
+    },
+    {
+      field: "temperature_sensor.chamber.temperature",
+      rule_type: "absolute_minimum",
+      min_value: 90.0,
+      allowed_total_violation_epochs: 15,
+    },
+  ],
+};
+
+// ── scenarios ─────────────────────────────────────────────────────────────────
+// Deterministic printer simulation. A given (scenario, seed) always produces
+// the identical frame sequence — and therefore the identical hash chain — which
+// is what makes the "deterministic replay" claim demonstrable.
+//
+// Each frame carries the full machine state plus deltaArrived: when false, the
+// custody clock still ticks (independent of the source) but the
+// silence counter climbs, exactly as in internal/custody/packetizer.go.
+
+const NODE_LABEL = "sfn-node-001";
+const PRINTER_ID = "voron-2.4-001";
+const MCU_VERSION = "v0.12.0-294-g7a3f1b2";
+const MCU_BUILD = "gcc: 12.2.1 binutils: 2.40";
+
+const EXTRUDER_TARGET = 240.0;
+const BED_TARGET = 110.0;
+const CHAMBER_MIN = 95.0;
+
+// mulberry32 — tiny seedable PRNG for reproducible thermal noise.
+function mulberry32(seed) {
+  let a = seed >>> 0;
+  return function () {
+    a |= 0;
+    a = (a + 0x6d2b79f5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function baseState() {
+  return {
+    print_state: "standby",
+    extruder_temp: 24.0,
+    extruder_target: 0.0,
+    extruder_power: 0.0,
+    bed_temp: 24.0,
+    bed_target: 0.0,
+    bed_power: 0.0,
+    chamber_temp: 24.0,
+    chamber_present: true,
+    live_velocity: 0.0,
+    live_extruder_velocity: 0.0,
+    live_position: [0, 0, 0],
+    filament_used_mm: 0.0,
+    print_duration_s: 0.0,
+    mcu_version: MCU_VERSION,
+    mcu_build_versions: MCU_BUILD,
+  };
+}
+
+const HEAT_TICKS = 8; // pre-print heating, shown but not recorded
+const PRINT_TICKS = 60; // active printing
+const TOTAL = HEAT_TICKS + PRINT_TICKS + 1; // +1 for the "complete" frame
+
+const SCENARIOS = {
+  clean: {
+    id: "clean",
+    label: "Clean print",
+    blurb: "Heat, print, complete. Unbroken BLAKE3 chain, every verdict PASS.",
+  },
+  thermal: {
+    id: "thermal",
+    label: "Thermal excursion",
+    blurb: "Extruder sags 22°C below target mid-print. Grace absorbs 3 ticks, then the verdict flips to FAIL.",
+  },
+  provenance: {
+    id: "provenance",
+    label: "Provenance fault",
+    blurb: "Printer telemetry goes silent for 12s. The custody clock keeps ticking and records a provenance fault — the REQ-5 guarantee.",
+  },
+};
+
+// build returns the full deterministic frame list for a scenario.
+function build(scenarioId, seed = 0x5f3759df) {
+  const rnd = mulberry32(seed ^ hashStr(scenarioId));
+  const jitter = (amp) => (rnd() - 0.5) * 2 * amp;
+
+  const frames = [];
+  let filament = 0;
+  let printT = 0;
+
+  for (let t = 0; t < TOTAL; t++) {
+    const s = baseState();
+    s.node_label = NODE_LABEL;
+    s.printer_id = PRINTER_ID;
+    let deltaArrived = true;
+
+    if (t < HEAT_TICKS) {
+      // Heating ramp toward targets (not recorded — print not yet active).
+      const frac = (t + 1) / HEAT_TICKS;
+      s.print_state = "standby";
+      s.extruder_target = EXTRUDER_TARGET;
+      s.bed_target = BED_TARGET;
+      s.extruder_temp = 24 + (EXTRUDER_TARGET - 24) * frac + jitter(1.5);
+      s.bed_temp = 24 + (BED_TARGET - 24) * frac + jitter(0.8);
+      s.chamber_temp = 24 + (CHAMBER_MIN + 2 - 24) * frac + jitter(0.5);
+      s.extruder_power = 1.0;
+      s.bed_power = 1.0;
+    } else if (t < HEAT_TICKS + PRINT_TICKS) {
+      // Active printing.
+      printT++;
+      const pt = t - HEAT_TICKS; // 0-based print tick
+      s.print_state = "printing";
+      s.extruder_target = EXTRUDER_TARGET;
+      s.bed_target = BED_TARGET;
+      s.extruder_temp = EXTRUDER_TARGET + jitter(1.2);
+      s.bed_temp = BED_TARGET + jitter(0.6);
+      s.chamber_temp = CHAMBER_MIN + 2 + jitter(0.7);
+      s.extruder_power = 0.35 + jitter(0.05);
+      s.bed_power = 0.5 + jitter(0.05);
+      s.live_velocity = 80 + jitter(40);
+      s.live_extruder_velocity = 3.2 + jitter(1.5);
+      s.live_position = [
+        round2(110 + 40 * Math.sin(pt / 4)),
+        round2(110 + 40 * Math.cos(pt / 5)),
+        round2(0.2 + pt * 0.05),
+      ];
+      filament += Math.max(0, s.live_extruder_velocity);
+      printT += 1;
+
+      // Scenario-specific fault injection during printing.
+      if (scenarioId === "thermal" && pt >= 20 && pt < 26) {
+        // Extruder sags well below the -5 envelope for 6 consecutive ticks.
+        s.extruder_temp = EXTRUDER_TARGET - 22 + jitter(0.8);
+        s.extruder_power = 1.0;
+      }
+      if (scenarioId === "provenance" && pt >= 20 && pt < 32) {
+        // Source goes silent: no delta this tick. State is held stale by the
+        // cache; the custody clock keeps recording and the gap counter climbs.
+        deltaArrived = false;
+      }
+
+      s.print_duration_s = printT;
+      s.filament_used_mm = round3(filament);
+    } else {
+      // Print complete.
+      s.print_state = "complete";
+      s.extruder_target = 0;
+      s.bed_target = 0;
+      s.extruder_temp = EXTRUDER_TARGET - 30 + jitter(2);
+      s.bed_temp = BED_TARGET - 5 + jitter(1);
+      s.chamber_temp = CHAMBER_MIN + jitter(0.5);
+      s.filament_used_mm = round3(filament);
+      s.print_duration_s = PRINT_TICKS;
+    }
+
+    frames.push({ state: s, deltaArrived });
+  }
+
+  return {
+    scenarioId,
+    seed,
+    node_label: NODE_LABEL,
+    printer_id: PRINTER_ID,
+    heatTicks: HEAT_TICKS,
+    frames,
+  };
+}
+
+function hashStr(s) {
+  let h = 2166136261;
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return h >>> 0;
+}
+function round2(x) { return Math.round(x * 100) / 100; }
+
+// ── recorder ──────────────────────────────────────────────────────────────────
+// Pure, deterministic port of the custody packetizer's onTick loop
+// (internal/custody/packetizer.go). Given a scenario run + MPF profile it returns
+// the complete recorded session: packets, provenance faults, and Merkle
+// segments. Because it is a pure function of (run, mpf, tamper), the live
+// playback, the tamper test, and deterministic replay all derive from one
+// source of truth.
+
+
+const MAX_SILENT_TICKS = 10; // config.custody.max_silent_ticks
+const QUOTE_INTERVAL = 20;   // ticks between TPM quotes
+
+function isActive(state) {
+  return state === "printing" || state === "paused";
+}
+
+function deriveHex(seed, label, nbytes) {
+  return bytesToHex(blake3(utf8ToBytes(label + ":" + seed))).slice(0, nbytes * 2);
+}
+
+// computeRun replays the scenario through the packetizer logic.
+// tamper (optional): { atSeq, field, value } overrides one recorded packet's
+// telemetry before hashing, so the caller can show the chain break.
+function computeRun(run, mpf, tamper = null) {
+  const engine = new PolicyEngine();
+  if (mpf) engine.loadProfile(mpf);
+
+  const sessionID = deriveHex(run.seed, "session", 16);
+  const packets = [];
+  const faults = [];
+  const segments = [];
+
+  let cached = null;       // printer state cache (updated by deltas)
+  let sessionStarted = false;
+  let seq = 0;
+  let prevHex = null;      // prev packet_blake3 as hex
+  let prevBytes = null;    // prev packet_blake3 as bytes (for chain input)
+  let silentTicks = 0;
+  let lastQuoteTick = -1;
+  const quoteSeqs = [];
+
+  run.frames.forEach((frame, t) => {
+    // applyDelta: a delta refreshes the cache and resets the silence counter.
+    if (frame.deltaArrived) {
+      cached = frame.state;
+      silentTicks = 0;
+    }
+    if (!cached) return; // no state observed yet
+
+    // onTick: only record during active prints.
+    if (!isActive(cached.print_state)) return;
+
+    if (!sessionStarted) {
+      sessionStarted = true;
+      seq = 0;
+      prevHex = null;
+      prevBytes = null;
+      lastQuoteTick = -1;
+    }
+
+    // Silence / provenance fault accounting (REQ-5).
+    silentTicks++;
+    if (silentTicks > MAX_SILENT_TICKS) {
+      faults.push({
+        seq,
+        reason: "printer telemetry silence exceeded threshold",
+        silent_ticks: silentTicks,
+        tick: new Date(BASE_TIME + t * 1000).toISOString(),
+      });
+      silentTicks = 0; // reset so we don't flood
+    }
+
+    // TPM quote on session start + on interval.
+    let quoted = false;
+    if (lastQuoteTick < 0 || t - lastQuoteTick >= QUOTE_INTERVAL) {
+      quoted = true;
+      lastQuoteTick = t;
+      quoteSeqs.push(seq);
+    }
+
+    // Build the packet.
+    const pkt = {
+      session_id: sessionID,
+      node_label: run.node_label,
+      printer_id: run.printer_id,
+      seq,
+      tick: new Date(BASE_TIME + t * 1000).toISOString(),
+      tick_mono_ns: t * 1_000_000_000,
+      extruder_temp: cached.extruder_temp,
+      extruder_target: cached.extruder_target,
+      extruder_power: cached.extruder_power,
+      bed_temp: cached.bed_temp,
+      bed_target: cached.bed_target,
+      bed_power: cached.bed_power,
+      chamber_temp: cached.chamber_temp,
+      chamber_present: cached.chamber_present,
+      live_velocity: cached.live_velocity,
+      live_extruder_velocity: cached.live_extruder_velocity,
+      live_position: cached.live_position,
+      print_state: cached.print_state,
+      filament_used_mm: cached.filament_used_mm,
+      print_duration_s: cached.print_duration_s,
+      mcu_version: cached.mcu_version,
+      mcu_build_versions: cached.mcu_build_versions,
+      prev_packet_blake3: prevHex,
+    };
+
+    // Optional tamper: mutate this packet's telemetry before hashing.
+    let tampered = false;
+    if (tamper && tamper.atSeq === seq) {
+      pkt[tamper.field] = tamper.value;
+      tampered = true;
+    }
+
+    // Policy evaluation against the active MPF.
+    const verdict = engine.evaluate(telemetryFromCustody(pkt));
+    if (verdict.profile_id !== "null") pkt.decision = verdict;
+
+    // Canonical bytes -> SHA-256 (the TPM-signed digest) -> simulated TPM sig.
+    const canonical = canonicalPacketBytes(pkt);
+    const sha = sha256Hex(canonical);
+    const tpmSig = simulatedTpmSig(sha);
+
+    // BLAKE3 chain link.
+    const b3 = packetBlake3(seq, sessionID, canonical, tpmSig, prevBytes);
+    const b3hex = bytesToHex(b3);
+
+    packets.push({
+      seq,
+      tick: pkt.tick,
+      print_state: pkt.print_state,
+      telemetry: {
+        extruder_temp: round3(pkt.extruder_temp),
+        extruder_target: round3(pkt.extruder_target),
+        bed_temp: round3(pkt.bed_temp),
+        bed_target: round3(pkt.bed_target),
+        chamber_temp: round3(pkt.chamber_temp),
+        live_velocity: round3(pkt.live_velocity),
+      },
+      verdict,
+      canonical: new TextDecoder().decode(canonical),
+      packet_sha256: sha,
+      tpm_sig: bytesToHex(tpmSig).slice(0, 32) + "…",
+      tpm_sig_full: bytesToHex(tpmSig),
+      prev_packet_blake3: prevHex,
+      packet_blake3: b3hex,
+      quoted,
+      tampered,
+      b3bytes: b3,
+    });
+
+    prevHex = b3hex;
+    prevBytes = b3;
+    seq++;
+  });
+
+  // Build Merkle segments over contiguous batches.
+  for (let i = 0; i < packets.length; i += BATCH_SIZE) {
+    const batch = packets.slice(i, i + BATCH_SIZE);
+    const root = merkleRoot(batch.map((p) => p.b3bytes));
+    segments.push({
+      seq_start: batch[0].seq,
+      seq_end: batch[batch.length - 1].seq,
+      packet_count: batch.length,
+      merkle_root: bytesToHex(root),
+    });
+  }
+
+  return { sessionID, mpfId: mpf ? mpf.profile_id : "null", packets, faults, segments, quoteSeqs };
+}
+
+// diffRuns returns the first seq at which two runs' chain hashes diverge,
+// plus the set of segment indices whose Merkle root changed.
+function diffRuns(base, tampered) {
+  let firstDiverge = -1;
+  for (let i = 0; i < base.packets.length; i++) {
+    if (base.packets[i].packet_blake3 !== tampered.packets[i].packet_blake3) {
+      firstDiverge = base.packets[i].seq;
+      break;
+    }
+  }
+  const changedSegments = [];
+  for (let i = 0; i < base.segments.length; i++) {
+    if (base.segments[i].merkle_root !== tampered.segments[i].merkle_root) {
+      changedSegments.push(i);
+    }
+  }
+  return { firstDiverge, changedSegments };
+}
 
 // ── State ──────────────────────────────────────────────────────────────────
 const SPEED_MS   = 160;

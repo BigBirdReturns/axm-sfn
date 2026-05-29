@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=67"]
+build-backend = "setuptools.backends.legacy:build"
+
+[project]
+name = "axm-sfn"
+version = "0.1.0"
+description = "AXM SFN fabrication spoke — compiles custody sessions into AXM Layer 2 journal shards"
+requires-python = ">=3.11"
+dependencies = [
+    # Hub dependency — all crypto comes transitively; do not declare blake3/pynacl directly (INV-26)
+    "axm-core @ git+https://github.com/BigBirdReturns/axm-core.git@v1.1.0",
+    "pandas>=2.0.0",
+    "pyarrow>=14.0.0",
+    "click>=8.0.0",
+]
+
+[project.scripts]
+axm-sfn-compile = "axm_sfn.compile:main"
+
+[project.entry-points."axm.spokes"]
+sfn = "axm_sfn.cli:sfn_group"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
