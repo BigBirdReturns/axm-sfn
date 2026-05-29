@@ -12,8 +12,8 @@
 //
 // The design follows the research synthesis: "do not try to force the TPM to
 // become the AXM shard signer." The TPM produces hardware attestation
-// artifacts; the upstream AXM/NodalFlow object embeds those artifacts into
-// the full provenance envelope.
+// artifacts; the axm-sfn spoke embeds those artifacts into the shard during
+// compilation (the shard is ML-DSA-44 signed by the kernel, not the TPM).
 package tpm
 
 import (
