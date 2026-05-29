@@ -54,7 +54,9 @@ def _pack_payload(pkt: PacketRecord) -> bytes:
         else 1
     )
     tpm = 1 if pkt.tpm_sig else 0
-    return _CORE_FMT.pack(b3, sha, verdict, tpm, pkt.seq) + b"\x00" * _PAD_LEN
+    payload = _CORE_FMT.pack(b3, sha, verdict, tpm, pkt.seq) + b"\x00" * _PAD_LEN
+    assert len(payload) == LATENT_DIM, f"payload must be {LATENT_DIM} bytes, got {len(payload)}"
+    return payload
 
 
 def build_axlf_stream(packets: list[PacketRecord]) -> bytes:

@@ -150,6 +150,11 @@ def compile_session(
     Returns the path to the compiled shard directory.
     Raises on any compilation or verification failure.
     """
+    if suite == SUITE_MLDSA44 and len(private_key) not in (2528, 3840):
+        raise ValueError(
+            f"ML-DSA-44 key must be 2528 (sk) or 3840 (sk||pk) bytes, got {len(private_key)}"
+        )
+
     if created_at is None:
         created_at = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
