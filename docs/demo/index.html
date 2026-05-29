@@ -6,7 +6,8 @@
 <title>axm-sfn · Custody Chain Demo</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300&family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Source+Serif+4:ital,wght@0,300;0,400;0,600;1,300;1,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:ital,wght@0,300;0,400;0,600;0,700;1,300&family=Space+Mono&family=Source+Serif+4:wght@300;400&display=swap">
+
 <style>
 :root {
   --bg:          #090a0b;
@@ -534,6 +535,130 @@ body {
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--rule-strong); border-radius: 3px; }
 
+/* ── HELP BUTTON ───────────────────────────────────────────── */
+.ctl-btn.help-btn {
+  width: 26px; padding: 5px 0; text-align: center;
+  font-weight: 700; font-size: 12px; line-height: 1;
+  border-radius: 50%; color: var(--white-dim);
+}
+.ctl-btn.help-btn:hover { color: var(--teal); border-color: var(--teal-border); }
+
+/* ── SCENARIO STRIP ────────────────────────────────────────── */
+.scn-strip {
+  flex-shrink: 0;
+  background: var(--bg-1);
+  border-bottom: 1px solid var(--rule-strong);
+  display: flex;
+  align-items: baseline;
+  gap: 18px;
+  padding: 9px 16px;
+  font-size: 12px;
+}
+.scn-strip-blurb {
+  font-family: var(--font-body);
+  font-size: 13.5px;
+  line-height: 1.35;
+  color: var(--white-dim);
+  font-style: italic;
+}
+.scn-strip-watch {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--teal);
+  white-space: nowrap;
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.scn-strip-watch::before {
+  content: "";
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--teal);
+  box-shadow: 0 0 6px var(--teal);
+  animation: watchPing 1.6s ease-in-out infinite;
+}
+@keyframes watchPing { 0%,100% { opacity: .35; } 50% { opacity: 1; } }
+
+/* ── TAMPER INVITE PULSE ───────────────────────────────────── */
+.ctl-btn.danger.invite {
+  color: var(--red);
+  border-color: var(--red);
+  animation: tamperPulse 1.3s ease-in-out infinite;
+}
+@keyframes tamperPulse {
+  0%,100% { box-shadow: 0 0 0 0 var(--red-dim); }
+  50%     { box-shadow: 0 0 0 4px rgba(241,85,57,0.18); }
+}
+
+/* ── INTRO OVERLAY ─────────────────────────────────────────── */
+.intro-overlay {
+  position: fixed; inset: 0; z-index: 100;
+  background: rgba(5,6,7,0.78);
+  backdrop-filter: blur(3px);
+  display: flex; align-items: center; justify-content: center;
+  padding: 24px;
+  opacity: 1; transition: opacity .25s;
+}
+.intro-overlay.hidden { opacity: 0; pointer-events: none; visibility: hidden; }
+.intro-card {
+  background: var(--bg-1);
+  border: 1px solid var(--teal-border);
+  border-radius: 6px;
+  max-width: 560px; width: 100%;
+  padding: 30px 32px 26px;
+  box-shadow: 0 24px 70px rgba(0,0,0,0.6);
+}
+.intro-kicker {
+  font-family: var(--font-mono);
+  font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase;
+  color: var(--teal); margin-bottom: 12px;
+}
+.intro-title {
+  font-family: var(--font-disp);
+  font-size: 26px; font-weight: 600; line-height: 1.1;
+  color: var(--white); margin-bottom: 14px;
+}
+.intro-lead {
+  font-family: var(--font-body);
+  font-size: 15px; line-height: 1.5;
+  color: var(--white-dim); margin-bottom: 22px;
+  text-wrap: pretty;
+}
+.intro-lead b { color: var(--white); font-weight: 600; }
+.intro-steps { display: flex; flex-direction: column; gap: 12px; margin-bottom: 26px; }
+.intro-step { display: flex; gap: 12px; align-items: flex-start; }
+.intro-step-n {
+  flex-shrink: 0;
+  width: 22px; height: 22px; border-radius: 50%;
+  border: 1px solid var(--teal-border);
+  color: var(--teal);
+  font-family: var(--font-mono); font-size: 11px; font-weight: 700;
+  display: flex; align-items: center; justify-content: center;
+}
+.intro-step-tx {
+  font-family: var(--font-mono); font-size: 12px; line-height: 1.45;
+  color: var(--white-dim); padding-top: 2px;
+}
+.intro-step-tx b { color: var(--white); font-weight: 700; }
+.intro-foot { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.intro-note {
+  font-family: var(--font-mono); font-size: 10px;
+  color: var(--white-faint); letter-spacing: 0.03em;
+}
+.intro-note b { color: var(--white-dim); }
+.intro-dismiss {
+  font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--bg); background: var(--teal);
+  border: none; border-radius: 3px;
+  padding: 9px 18px; cursor: pointer;
+  transition: background .15s;
+}
+.intro-dismiss:hover { background: var(--teal-hi); }
+
 /* ── MOBILE FALLBACK ──────────────────────────────────────── */
 @media (max-width: 700px) {
   .workspace { grid-template-columns: 1fr; }
@@ -542,7 +667,98 @@ body {
   .workspace { height: auto; }
   .left-panel { height: auto; overflow: visible; }
   .log-body { max-height: 200px; }
+  .scn-strip { flex-direction: column; gap: 8px; align-items: flex-start; }
+  .scn-strip-watch { margin-left: 0; }
 }
+
+/* ── COMPILE PANEL ───────────────────────────────────────────────────────── */
+.compile-panel {
+  border-top: 1px solid var(--rule-strong);
+  background: var(--bg-1);
+  flex-shrink: 0;
+  overflow: hidden;
+  max-height: 0;
+  transition: max-height 0.6s cubic-bezier(0.4,0,0.2,1);
+}
+.compile-panel.open { max-height: 440px; }
+.compile-hd {
+  padding: 8px 20px;
+  border-bottom: 1px solid var(--rule-strong);
+  font-size: 9px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--teal);
+  background: var(--bg-2);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.compile-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--teal);
+  animation: cdot-pulse 1s ease-in-out infinite;
+  flex-shrink: 0;
+}
+.compile-dot.done { animation: none; background: var(--green-hi); }
+@keyframes cdot-pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+.compile-log {
+  padding: 8px 20px 6px;
+  font-size: 10.5px;
+  line-height: 1.85;
+  font-family: var(--font-mono);
+  max-height: 170px;
+  overflow-y: auto;
+}
+.compile-log::-webkit-scrollbar { width: 4px; }
+.compile-log::-webkit-scrollbar-thumb { background: var(--rule-strong); }
+.cl { color: var(--white-dim); }
+.cl .clb { color: var(--white-faint); margin-right: 6px; }
+.cl.ok   { color: var(--green-hi); }
+.cl.step { color: var(--teal-hi); }
+.cl.warn { color: var(--amber); }
+.shard-card {
+  margin: 6px 20px 12px;
+  border: 1px solid var(--teal-border);
+  border-radius: 4px;
+  background: var(--teal-glow);
+  padding: 10px 14px;
+  display: none;
+}
+.shard-card.show { display: block; }
+.shard-card-title {
+  font-family: var(--font-disp);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--teal-hi);
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.shard-badge {
+  font-size: 9px; padding: 1px 7px; border-radius: 2px;
+  letter-spacing: 0.1em;
+  background: rgba(74,184,114,0.2);
+  color: var(--green-hi);
+  border: 1px solid rgba(74,184,114,0.3);
+}
+.shard-badge.fail {
+  background: var(--red-dim); color: #ff7a5c;
+  border-color: rgba(241,85,57,0.4);
+}
+.shard-fields {
+  display: grid;
+  grid-template-columns: 118px 1fr;
+  font-size: 10px;
+  line-height: 1.85;
+}
+.sk { color: var(--white-faint); }
+.sv { font-family: var(--font-mono); color: var(--white); word-break: break-all; }
+.sv.hash { color: var(--teal-hi); font-size: 9.5px; }
+.sv.sigv { color: var(--amber); font-size: 9.5px; }
+.sv.pv   { color: var(--green-hi); }
 </style>
 </head>
 <body>
@@ -564,15 +780,23 @@ body {
   </div>
   <div class="topbar-sep"></div>
   <div class="ctl-group">
-    <button class="ctl-btn danger" id="btn-tamper" disabled>⚠ Tamper</button>
-    <button class="ctl-btn" id="btn-export" disabled>⤓ JSON</button>
+    <button class="ctl-btn danger" id="btn-tamper" disabled="">⚠ Tamper</button>
+    <button class="ctl-btn" id="btn-export" disabled="">⤓ JSON</button>
   </div>
+  <div class="topbar-sep"></div>
+  <button class="ctl-btn help-btn" id="btn-help" title="What is this demo?">?</button>
   <div class="topbar-sep"></div>
   <a href="../" class="back-link">← Docs</a>
 </div>
 
 <!-- PROGRESS -->
 <div class="progress-bar-wrap"><div class="progress-bar" id="progress-bar"></div></div>
+
+<!-- SCENARIO STRIP -->
+<div class="scn-strip">
+  <span class="scn-strip-blurb" id="scn-blurb">—</span>
+  <span class="scn-strip-watch" id="scn-watch">—</span>
+</div>
 
 <!-- WORKSPACE -->
 <div class="workspace">
@@ -651,8 +875,61 @@ body {
         <div>Select a scenario and press Play</div>
       </div>
     </div>
+
+  <!-- COMPILE / SHARD PANEL -->
+  <div class="compile-panel" id="compile-panel">
+    <div class="compile-hd">
+      <div class="compile-dot" id="compile-dot"></div>
+      <span id="compile-hd-txt">axm-sfn spoke · compiling session → AXM Layer 2 journal shard</span>
+    </div>
+    <div class="compile-log" id="compile-log"></div>
+    <div class="shard-card" id="shard-card">
+      <div class="shard-card-title">
+        AXM Layer 2 Journal Shard
+        <span class="shard-badge" id="shard-badge">SEALED ✓</span>
+      </div>
+      <div class="shard-fields">
+        <span class="sk">namespace</span><span class="sv" id="sf-ns">sfn/custody</span>
+        <span class="sk">shard_id</span><span class="sv hash" id="sf-id">—</span>
+        <span class="sk">merkle_root</span><span class="sv hash" id="sf-root">—</span>
+        <span class="sk">suite</span><span class="sv" id="sf-suite">ML-DSA-44  (axm-blake3-mldsa44)</span>
+        <span class="sk">manifest.sig</span><span class="sv sigv" id="sf-sig">—</span>
+        <span class="sk">packets</span><span class="sv" id="sf-pkts">—</span>
+        <span class="sk">faults</span><span class="sv" id="sf-faults">—</span>
+        <span class="sk">final_verdict</span><span class="sv" id="sf-verdict">—</span>
+        <span class="sk">verify_shard</span><span class="sv pv" id="sf-verify">—</span>
+      </div>
+    </div>
+  </div>
   </div>
 
+</div>
+
+<!-- INTRO OVERLAY -->
+<div class="intro-overlay" id="intro-overlay">
+  <div class="intro-card">
+    <div class="intro-kicker">axm-sfn · custody demo</div>
+    <div class="intro-title">Proof of what a machine made.</div>
+    <p class="intro-lead">This turns an ordinary 3D printer into a node that can <b>prove what it produced</b>. Every second of a print is sealed into a tamper-evident chain — so the record can't be quietly edited after the fact without it showing.</p>
+    <div class="intro-steps">
+      <div class="intro-step">
+        <span class="intro-step-n">1</span>
+        <span class="intro-step-tx">Press <b>▶ Play</b> — watch the custody chain build one signed packet per second as the printer heats, prints, and finishes.</span>
+      </div>
+      <div class="intro-step">
+        <span class="intro-step-n">2</span>
+        <span class="intro-step-tx">Try the <b>scenarios</b> — a <b>thermal excursion</b> trips the policy verdict; a <b>provenance fault</b> is the printer going silent while the clock keeps recording.</span>
+      </div>
+      <div class="intro-step">
+        <span class="intro-step-n">3</span>
+        <span class="intro-step-tx">Hit <b>⚠ Tamper</b> after a clean run — forge a single packet and watch the chain break exactly where it was touched.</span>
+      </div>
+    </div>
+    <div class="intro-foot">
+      <span class="intro-note">Reopen anytime with the <b>?</b> button.</span>
+      <button class="intro-dismiss" id="intro-dismiss">Got it</button>
+    </div>
+  </div>
 </div>
 
 <script type="module">
@@ -1007,16 +1284,19 @@ const SCENARIOS = {
     id: "clean",
     label: "Clean print",
     blurb: "Heat, print, complete. Unbroken BLAKE3 chain, every verdict PASS.",
+    watch: "Watch the chain stay green end-to-end — then break it with ⚠ Tamper",
   },
   thermal: {
     id: "thermal",
     label: "Thermal excursion",
     blurb: "Extruder sags 22°C below target mid-print. Grace absorbs 3 ticks, then the verdict flips to FAIL.",
+    watch: "Watch the verdict flip ✓ PASS → ✗ FAIL once the grace window is spent",
   },
   provenance: {
     id: "provenance",
     label: "Provenance fault",
     blurb: "Printer telemetry goes silent for 12s. The custody clock keeps ticking and records a provenance fault — the REQ-5 guarantee.",
+    watch: "Watch the source go ● SILENT while packets keep sealing — the clock never stops",
   },
 };
 
@@ -1469,6 +1749,8 @@ function loadScenario(id) {
   document.querySelectorAll('.scn-tab').forEach(b =>
     b.classList.toggle('active', b.dataset.scenario === id));
   $('chain-mpf').textContent = 'mpf: ' + rec.mpfId;
+  $('scn-blurb').textContent = SCENARIOS[id].blurb;
+  $('scn-watch').textContent = SCENARIOS[id].watch;
   resetUI();
   log(`Scenario <b style="color:var(--teal)">${id}</b> loaded · ${rec.packets.length} packets precomputed`, '');
 }
@@ -1481,6 +1763,14 @@ function resetUI() {
   segEls = [];
 
   $('chain-body').innerHTML = `<div class="chain-empty"><div class="big">CHAIN</div><div>Press Play to run</div></div>`;
+  const cpanel = $('compile-panel');
+  if (cpanel) { cpanel.classList.remove('open'); }
+  const sc = $('shard-card');
+  if (sc) sc.classList.remove('show');
+  const cl = $('compile-log');
+  if (cl) cl.innerHTML = '';
+  const cdot = $('compile-dot');
+  if (cdot) cdot.className = 'compile-dot';
   $('log-body').innerHTML = '<div class="log-empty">Waiting for session…</div>';
   $('log-count').textContent = '';
 
@@ -1506,6 +1796,7 @@ function resetUI() {
   $('chain-session').textContent = 'session: —';
 
   $('btn-tamper').disabled = true;
+  $('btn-tamper').classList.remove('invite');
   $('btn-export').disabled = true;
   $('btn-play').textContent = '▶ Play';
   setProgress(0);
@@ -1638,11 +1929,15 @@ function finish() {
   $('btn-export').disabled = false;
   if (!tampered) {
     $('btn-tamper').disabled = false;
+    $('btn-tamper').classList.add('invite');
     log(`Session complete · chain intact · ${revealed} packets · ${segShown} segments`, 'ok');
     const banner = $('chain-banner');
     banner.className = 'chain-banner intact';
-    banner.textContent = `✓ Chain intact — ${revealed} packets, ${segShown} Merkle segments, ${faultsShown} provenance fault(s). Same seed → bit-identical chain.`;
+    banner.innerHTML = `✓ Chain intact — ${revealed} packets, ${segShown} Merkle segments, ${faultsShown} provenance fault(s). <b style="color:var(--red)">Now hit ⚠ Tamper</b> to forge one packet and watch the chain break.`;
   }
+  // Simulate spoke compilation regardless of verdict — a FAIL session still
+  // produces a sealed shard; the verdict is embedded in the shard, not a gate.
+  simulateCompile();
 }
 
 // ── Play / Pause / Step ───────────────────────────────────────────────────
@@ -1698,6 +1993,7 @@ function tamperRun() {
   log(`TAMPER: forged seq ${T} → BLAKE3 diverges at seq ${diff.firstDiverge} · ${diff.changedSegments.length} segments invalidated`, 'err');
   setProgress(1, true);
   $('btn-tamper').disabled = true;
+  $('btn-tamper').classList.remove('invite');
   $('btn-tamper').textContent = '⚠ tampered';
 }
 
@@ -1726,8 +2022,155 @@ $('btn-reset').addEventListener('click', resetUI);
 $('btn-tamper').addEventListener('click', tamperRun);
 $('btn-export').addEventListener('click', exportJSON);
 
+// ── Intro overlay (first-run + recallable via ? button) ────────────────────
+const introEl = $('intro-overlay');
+const INTRO_KEY = 'axm-sfn-demo-intro-seen';
+function showIntro() { introEl.classList.remove('hidden'); }
+function hideIntro() {
+  introEl.classList.add('hidden');
+  try { localStorage.setItem(INTRO_KEY, '1'); } catch (e) {}
+}
+$('btn-help').addEventListener('click', showIntro);
+$('intro-dismiss').addEventListener('click', hideIntro);
+introEl.addEventListener('click', e => { if (e.target === introEl) hideIntro(); });
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && !introEl.classList.contains('hidden')) hideIntro();
+});
+let introSeen = false;
+try { introSeen = localStorage.getItem(INTRO_KEY) === '1'; } catch (e) {}
+if (introSeen) introEl.classList.add('hidden');
+
 // ── Init ──────────────────────────────────────────────────────────────────
 loadScenario('clean');
+
+// ── Shard compilation simulation ─────────────────────────────────────────────
+// Simulates what the Python spoke does at session boundary:
+//   build_axlf_stream → cam_latents.bin
+//   compile_generic_shard (pass 1)
+//   inject cam_latents.bin → recompute merkle root
+//   mldsa44_sign (reseal)
+//   verify_shard
+
+function shardMerkleRoot(segments) {
+  // Top-level merkle over all segment roots: BLAKE3(0x01 || h1 || h2 || ...)
+  // Mirrors compute_merkle_root in axm-build (simplified: hash concat of roots)
+  if (!segments.length) return new Uint8Array(32);
+  const concat_roots = segments.reduce((acc, seg) => {
+    const h = hexToBytes(seg.merkle_root);
+    const out = new Uint8Array(acc.length + h.length);
+    out.set(acc); out.set(h, acc.length);
+    return out;
+  }, new Uint8Array(0));
+  return blake3(concat_roots);
+}
+
+function simulatedManifestSig(shardId) {
+  // Simulate a ML-DSA-44 sig by hashing shard_id with a demo key domain tag.
+  // 2420 bytes is the actual ML-DSA-44 signature length; we show a prefix.
+  const b = blake3(utf8ToBytes('mldsa44:demo:' + shardId));
+  return bytesToHex(b).slice(0, 32) + '… (ML-DSA-44, 2420 bytes)';
+}
+
+async function simulateCompile() {
+  const panel   = $('compile-panel');
+  const logDiv  = $('compile-log');
+  const dot     = $('compile-dot');
+  const card    = $('shard-card');
+
+  // Reset
+  logDiv.innerHTML = '';
+  card.classList.remove('show');
+  dot.className = 'compile-dot';
+  panel.classList.add('open');
+
+  // Scroll right panel to bottom so compile panel is visible
+  const rightPanel = document.querySelector('.right-panel');
+  if (rightPanel) rightPanel.scrollTop = rightPanel.scrollHeight;
+
+  const delay = (ms) => new Promise(r => setTimeout(r, ms));
+
+  function clog(html, cls = '') {
+    const d = document.createElement('div');
+    d.className = 'cl' + (cls ? ' ' + cls : '');
+    d.innerHTML = html;
+    logDiv.appendChild(d);
+    logDiv.scrollTop = logDiv.scrollHeight;
+  }
+
+  const sid = rec.sessionID;
+  const n   = rec.packets.length;
+  const nf  = rec.faults.length;
+  const ns  = rec.segments.length;
+  const hasFail = rec.packets.some(p => !p.verdict.pass);
+
+  clog(`<span class="clb">sfn-spoke</span>reading buffer.db  session_id=${sid.slice(0,12)}…`, 'step');
+  await delay(320);
+  clog(`<span class="clb">db.load_session</span>${n} packets  ${nf} provenance fault(s)  ${ns} segment(s)`);
+  await delay(280);
+  clog(`<span class="clb">build_axlf_stream</span>serializing ${n} AXLR records → cam_latents.bin`, 'step');
+  await delay(350);
+  clog(`<span class="clb">cam_latents.bin</span>${n * 269} bytes  (${n} × 269-byte AXLR records)`);
+  await delay(260);
+  clog(`<span class="clb">compile_generic_shard</span>pass 1 — source.txt + candidates.jsonl`, 'step');
+  await delay(400);
+  clog(`<span class="clb">manifest.json</span>pass 1 shard created  namespace=sfn/custody`);
+  await delay(260);
+  clog(`<span class="clb">inject</span>writing cam_latents.bin → content/`, 'step');
+  await delay(220);
+  clog(`<span class="clb">inject</span>writing ext/streams@1.parquet → ext/`);
+  await delay(280);
+  clog(`<span class="clb">compute_merkle_root</span>pass 2 — covering all content + ext/`, 'step');
+  await delay(380);
+
+  // Compute the shard merkle root from actual segment data
+  const rootBytes = shardMerkleRoot(rec.segments);
+  const rootHex   = bytesToHex(rootBytes);
+  const shardId   = 'shard_blake3_' + rootHex;
+  const sigPreview = simulatedManifestSig(shardId);
+
+  clog(`<span class="clb">merkle_root</span>${rootHex.slice(0,20)}…`);
+  await delay(260);
+  clog(`<span class="clb">manifest.json</span>shard_id updated → ${shardId.slice(0,28)}…`, 'step');
+  await delay(320);
+  clog(`<span class="clb">mldsa44_sign</span>re-signing manifest with ML-DSA-44 sk`, 'step');
+  await delay(380);
+  clog(`<span class="clb">verify_shard</span>running self-verification…`, 'step');
+  await delay(420);
+  clog(`<span class="clb">verify_shard</span>PASS — 0 errors — shard integrity confirmed`, 'ok');
+  await delay(180);
+
+  // Fill shard card
+  $('sf-ns').textContent     = 'sfn/custody';
+  $('sf-id').textContent     = shardId.slice(0, 36) + '…';
+  $('sf-root').textContent   = rootHex.slice(0, 36) + '…';
+  $('sf-suite').textContent  = 'ML-DSA-44  (axm-blake3-mldsa44)';
+  $('sf-sig').textContent    = sigPreview;
+  $('sf-pkts').textContent   = n + ' packets';
+  $('sf-faults').textContent = nf + (nf === 1 ? ' provenance fault' : ' provenance faults');
+
+  const vTag = $('sf-verdict');
+  if (hasFail) {
+    vTag.textContent = 'FAIL';
+    vTag.style.color = 'var(--red)';
+    $('shard-badge').textContent = 'SEALED (WITH FAULTS)';
+    $('shard-badge').classList.add('fail');
+  } else {
+    vTag.textContent = 'PASS';
+    vTag.style.color = 'var(--green-hi)';
+    $('shard-badge').textContent = 'SEALED ✓';
+    $('shard-badge').classList.remove('fail');
+  }
+  $('sf-verify').textContent = 'PASS — 0 errors';
+
+  dot.className = 'compile-dot done';
+  card.classList.add('show');
+
+  // Scroll to show the shard card
+  if (rightPanel) rightPanel.scrollTop = rightPanel.scrollHeight;
+}
+
 </script>
-</body>
-</html>
+
+
+
+</body></html>
