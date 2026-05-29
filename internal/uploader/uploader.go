@@ -1,9 +1,14 @@
 // Package uploader batches custody packets from the hot buffer into
-// BLAKE3 Merkle segments and ships them to the NodalFlow ingest endpoint.
+// local BLAKE3 Merkle segments and optionally forwards segment digests
+// to a configurable HTTP endpoint for monitoring.
 //
-// Current implementation: if Endpoint is empty or unreachable, segments
-// are logged to stdout as JSON. This keeps the daemon runnable without
-// a live NodalFlow instance during development.
+// This is NOT the AXM shard compilation step. Authoritative shard sealing
+// is performed by the axm-sfn Python spoke (python/), which reads the hot
+// buffer directly and calls compile_generic_shard through axm-core. The
+// Merkle root computed here is a local tamper-evidence device for the
+// SQLite WAL; it is not the shard's canonical Merkle root.
+//
+// If Endpoint is empty the segment digest is logged to stdout (dev mode).
 package uploader
 
 import (
@@ -83,7 +88,7 @@ func (u *Uploader) flush(ctx context.Context, sessionID string) error {
 	//   Leaf:  BLAKE3(0x00 || seq_le || 0x00 || packet_blake3)
 	//   Node:  BLAKE3(0x01 || left || right)
 	//   Odd:   promote unchanged (RFC 6962)
-	merkleRoot := computeMerkleRoot(hashes)
+	merkleRoot := localSegmentRoot(hashes)
 
 	seg := segmentPayload{
 		SessionID:   sessionID,
@@ -142,15 +147,17 @@ func (u *Uploader) ship(ctx context.Context, seg segmentPayload) error {
 	return nil
 }
 
-// MerkleRootForHashes computes the BLAKE3 Merkle root over a slice of
-// packet_blake3 hashes using the AXM Genesis mldsa44 construction.
-// Exported for testing.
-func MerkleRootForHashes(hashes [][]byte) []byte {
-	return computeMerkleRoot(hashes)
+// LocalSegmentRootForHashes is exported for testing. It computes the same
+// BLAKE3 construction as the Python spoke's compute_merkle_root, letting
+// the hot-buffer integrity check be verified in unit tests.
+func LocalSegmentRootForHashes(hashes [][]byte) []byte {
+	return localSegmentRoot(hashes)
 }
 
-// computeMerkleRoot is the internal implementation.
-func computeMerkleRoot(hashes [][]byte) []byte {
+// localSegmentRoot computes a local-only tamper-evidence root over the
+// packet_blake3 hashes in this segment. This is not the shard's canonical
+// Merkle root — that is computed by the Python spoke during compilation.
+func localSegmentRoot(hashes [][]byte) []byte {
 	if len(hashes) == 0 {
 		// Empty root: BLAKE3(0x01) — frozen Genesis constant
 		h := blake3.New()

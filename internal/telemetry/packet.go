@@ -77,8 +77,9 @@ type Decision struct {
 	Violations []string `json:"violations,omitempty"`
 }
 
-// Segment is a BLAKE3 Merkle batch of CustodyPackets, ready for upload
-// to the NodalFlow ingest endpoint.
+// Segment is a local BLAKE3 Merkle batch of CustodyPackets. The MerkleRoot
+// here is the uploader's local tamper-evidence digest, not the canonical
+// shard Merkle root (which is computed by the Python spoke at compile time).
 type Segment struct {
 	SessionID   string `json:"session_id"`
 	NodeLabel   string `json:"node_label"`
