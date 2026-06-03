@@ -680,7 +680,7 @@ body {
   max-height: 0;
   transition: max-height 0.6s cubic-bezier(0.4,0,0.2,1);
 }
-.compile-panel.open { max-height: 440px; }
+.compile-panel.open { max-height: 580px; }
 .compile-hd {
   padding: 8px 20px;
   border-bottom: 1px solid var(--rule-strong);
@@ -759,6 +759,32 @@ body {
 .sv.hash { color: var(--teal-hi); font-size: 9.5px; }
 .sv.sigv { color: var(--amber); font-size: 9.5px; }
 .sv.pv   { color: var(--green-hi); }
+.sv.dim  { color: var(--white-faint); font-style: italic; }
+
+/* ── TWO-LANE ACCEPTANCE PANEL ───────────────────────────────────────────── */
+.lane-panel {
+  margin: 0 20px 14px;
+  display: none;
+  gap: 10px;
+}
+.lane-panel.show { display: grid; grid-template-columns: 1fr 1fr; }
+.lane {
+  border-radius: 4px;
+  padding: 10px 12px;
+  border: 1px solid;
+}
+.lane.fast   { border-color: rgba(74,184,114,0.35); background: rgba(58,138,90,0.10); }
+.lane.retest { border-color: rgba(200,168,75,0.35); background: rgba(200,168,75,0.07); }
+.lane-title {
+  font-family: var(--font-disp);
+  font-size: 9px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase;
+  margin-bottom: 6px;
+}
+.lane.fast   .lane-title { color: var(--green-hi); }
+.lane.retest .lane-title { color: var(--amber); }
+.lane-items { font-size: 10px; line-height: 1.9; color: var(--white-dim); }
+.lane-items span { display: block; }
+.lane-note  { font-size: 9px; color: var(--white-faint); margin-top: 5px; letter-spacing: 0.04em; }
 </style>
 </head>
 <body>
@@ -898,6 +924,31 @@ body {
         <span class="sk">faults</span><span class="sv" id="sf-faults">—</span>
         <span class="sk">final_verdict</span><span class="sv" id="sf-verdict">—</span>
         <span class="sk">verify_shard</span><span class="sv pv" id="sf-verify">—</span>
+        <span class="sk" style="color:var(--white-faint);font-size:9px;padding-top:6px">note</span>
+        <span class="sv dim" style="font-size:9px;padding-top:6px">Segment hashes computed live (BLAKE3 in-browser). Shard pipeline is illustrated — axm-core is not running in this demo. In production, <code>verify_shard</code> runs against the frozen genesis kernel.</span>
+      </div>
+    </div>
+    <!-- Two-lane acceptance outcome -->
+    <div class="lane-panel" id="lane-panel">
+      <div class="lane fast">
+        <div class="lane-title">Machine-captured → Fast Track</div>
+        <div class="lane-items">
+          <span>✓ Source-captured process evidence</span>
+          <span>✓ Hardware-bound, no data-entry step</span>
+          <span>✓ Gaps are explicit, not hidden</span>
+          <span>✓ Chain integrity verifiable offline</span>
+        </div>
+        <div class="lane-note">Reduced acceptance testing burden · preferred-supplier tier</div>
+      </div>
+      <div class="lane retest">
+        <div class="lane-title">PDF cert / manual claim → Retest</div>
+        <div class="lane-items">
+          <span>⚠ Self-certified, unverifiable process</span>
+          <span>⚠ No gap detection at point of production</span>
+          <span>⚠ Record may have been edited post-hoc</span>
+          <span>⚠ Retesting cost borne by buyer</span>
+        </div>
+        <div class="lane-note">Standard quarantine / retest lane · existing default</div>
       </div>
     </div>
   </div>
@@ -910,7 +961,7 @@ body {
   <div class="intro-card">
     <div class="intro-kicker">axm-sfn · custody demo</div>
     <div class="intro-title">Proof of what a machine made.</div>
-    <p class="intro-lead">This turns an ordinary 3D printer into a node that can <b>prove what it produced</b>. Every second of a print is sealed into a tamper-evident chain — so the record can't be quietly edited after the fact without it showing.</p>
+    <p class="intro-lead">This turns an ordinary 3D printer into a node that can <b>prove what it produced</b>. Every second of a print is sealed into a tamper-evident chain at the machine — no data-entry step, no manual cert. It doesn't consume a data lake; <b>it creates one</b>, one signed process record per production event.</p>
     <div class="intro-steps">
       <div class="intro-step">
         <span class="intro-step-n">1</span>
@@ -918,7 +969,7 @@ body {
       </div>
       <div class="intro-step">
         <span class="intro-step-n">2</span>
-        <span class="intro-step-tx">Try the <b>scenarios</b> — a <b>thermal excursion</b> trips the policy verdict; a <b>provenance fault</b> is the printer going silent while the clock keeps recording.</span>
+        <span class="intro-step-tx">Try the <b>scenarios</b> — a <b>thermal excursion</b> trips the policy verdict; a <b>provenance fault</b> is the forged-cert problem: when the machine goes silent, the gap becomes an auditable fault rather than a hidden assumption.</span>
       </div>
       <div class="intro-step">
         <span class="intro-step-n">3</span>
@@ -1295,8 +1346,8 @@ const SCENARIOS = {
   provenance: {
     id: "provenance",
     label: "Provenance fault",
-    blurb: "Printer telemetry goes silent for 12s. The custody clock keeps ticking and records a provenance fault — the REQ-5 guarantee.",
-    watch: "Watch the source go ● SILENT while packets keep sealing — the clock never stops",
+    blurb: "Printer telemetry goes silent for 12s — the forged-cert scenario. Gaps don't disappear; they become explicit, auditable faults in the record rather than hidden assumptions.",
+    watch: "Watch the source go ● SILENT — the gap is captured as a fault, not erased",
   },
 };
 
@@ -1767,6 +1818,8 @@ function resetUI() {
   if (cpanel) { cpanel.classList.remove('open'); }
   const sc = $('shard-card');
   if (sc) sc.classList.remove('show');
+  const lp = $('lane-panel');
+  if (lp) lp.classList.remove('show');
   const cl = $('compile-log');
   if (cl) cl.innerHTML = '';
   const cdot = $('compile-dot');
@@ -2138,6 +2191,7 @@ async function simulateCompile() {
   await delay(420);
   clog(`<span class="clb">verify_shard</span>PASS — 0 errors — shard integrity confirmed`, 'ok');
   await delay(180);
+  clog(`<span class="clb" style="color:var(--white-faint)">note</span><span style="color:var(--white-faint);font-size:9.5px">hashes are live BLAKE3 · verify_shard illustrated (axm-core not running in demo)</span>`);
 
   // Fill shard card
   $('sf-ns').textContent     = 'sfn/custody';
@@ -2165,7 +2219,10 @@ async function simulateCompile() {
   dot.className = 'compile-dot done';
   card.classList.add('show');
 
-  // Scroll to show the shard card
+  await delay(300);
+  $('lane-panel').classList.add('show');
+
+  // Scroll to show the shard card and lane panel
   if (rightPanel) rightPanel.scrollTop = rightPanel.scrollHeight;
 }
 
