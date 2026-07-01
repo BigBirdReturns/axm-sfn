@@ -90,6 +90,7 @@ schema/
   mpf/                 — example MPF JSON profiles
 docs/
   STREAM_FORMAT.md     — cam_latents.bin binary format (AXLF/AXLR)
+  DURABILITY.md        — endstates + 30-year durability plan (Track 2 input)
 config.example.yaml    — annotated example configuration
 ```
 
