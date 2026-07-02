@@ -23,6 +23,11 @@ tpm:
   ak_handle: 0x81000002
   quote_interval: "5m"
   quote_on_lifecycle_edge: true
+  # DER-encoded EK certificate exported at provisioning time, e.g.:
+  #   tpm2_nvread 0x01c00002 -o ek-cert.der
+  # Optional but strongly recommended: without it, sealed shards carry the AK
+  # public key but not the chain proving the AK lives in a genuine TPM.
+  ek_cert_path: ""
 
 uploader:
   endpoint: ""                     # leave empty to log segments to stdout (dev mode)

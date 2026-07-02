@@ -38,6 +38,25 @@ type Worker struct {
 	cfg     Config
 	signKey tpm2.AuthHandle
 	akKey   tpm2.AuthHandle
+
+	// Marshalled TPM2B_PUBLIC of the persistent keys, captured at Open.
+	// Persisted into the hot buffer so the compiler can seal them into
+	// ext/attestation@1 — without these bytes in the shard, no verifier can
+	// ever check a packet signature or quote once the buffer is pruned.
+	signPub []byte
+	akPub   []byte
+}
+
+// KeyEvidence is the public key material a shard needs to verify TPM
+// signatures decades from now.
+type KeyEvidence struct {
+	SignPub []byte // marshalled TPM2B_PUBLIC of the packet signing key
+	AKPub   []byte // marshalled TPM2B_PUBLIC of the attestation key
+}
+
+// KeyEvidence returns the public areas captured when the worker opened.
+func (w *Worker) KeyEvidence() KeyEvidence {
+	return KeyEvidence{SignPub: w.signPub, AKPub: w.akPub}
 }
 
 // Config mirrors the TPMConfig from the top-level daemon config.
@@ -76,16 +95,21 @@ func (w *Worker) Close() error {
 func (w *Worker) checkHandles() error {
 	t := transport.FromReadWriter(w.dev)
 
-	// ReadPublic is a lightweight "does this handle exist?" check.
+	// ReadPublic doubles as the "does this handle exist?" check and the
+	// capture of the public areas that end up sealed into the shard.
 	signPub := tpm2.ReadPublic{ObjectHandle: tpm2.TPMHandle(w.cfg.SignKeyHandle)}
-	if _, err := signPub.Execute(t); err != nil {
+	signResp, err := signPub.Execute(t)
+	if err != nil {
 		return fmt.Errorf("tpm: sign key handle 0x%08x not found: %w", w.cfg.SignKeyHandle, err)
 	}
+	w.signPub = tpm2.Marshal(signResp.OutPublic)
 
 	akPub := tpm2.ReadPublic{ObjectHandle: tpm2.TPMHandle(w.cfg.AKHandle)}
-	if _, err := akPub.Execute(t); err != nil {
+	akResp, err := akPub.Execute(t)
+	if err != nil {
 		return fmt.Errorf("tpm: AK handle 0x%08x not found: %w", w.cfg.AKHandle, err)
 	}
+	w.akPub = tpm2.Marshal(akResp.OutPublic)
 
 	w.log.Info("tpm: persistent keys verified",
 		"sign_handle", fmt.Sprintf("0x%08x", w.cfg.SignKeyHandle),

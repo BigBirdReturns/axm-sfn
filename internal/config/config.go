@@ -48,6 +48,11 @@ type TPMConfig struct {
 	AKHandle             uint32        `yaml:"ak_handle"`
 	QuoteInterval        time.Duration `yaml:"quote_interval"`
 	QuoteOnLifecycleEdge bool          `yaml:"quote_on_lifecycle_edge"`
+	// EKCertPath points at the DER-encoded endorsement certificate exported
+	// during provisioning (e.g. tpm2_nvread of the standard EK cert index).
+	// Optional: when set, the cert is persisted to the buffer and sealed into
+	// shards so the AK→EK trust chain survives the hot buffer's lifetime.
+	EKCertPath string `yaml:"ek_cert_path"`
 }
 
 type UploaderConfig struct {

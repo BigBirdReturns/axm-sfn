@@ -125,26 +125,36 @@ def test_build_axlf_stream_gap():
     assert any(g > 1 for g in gaps), "expected a gap in frame_id sequence but found none"
 
 
-def test_build_axlf_stream_gap_axm_verify():
+def _run_continuity_check(raw: bytes, tmp_path) -> list[dict]:
+    """Run the kernel's REQ-5 validator over raw AXLF bytes."""
+    from axm_verify.logic import _validate_hot_stream_continuity
+
+    content_dir = tmp_path / "content"
+    content_dir.mkdir()
+    (content_dir / "cam_latents.bin").write_bytes(raw)
+    errors: list[dict] = []
+    _validate_hot_stream_continuity(content_dir, errors)
+    return errors
+
+
+def test_build_axlf_stream_gap_axm_verify(tmp_path):
     """If axm_verify is installed, E_BUFFER_DISCONTINUITY fires on a gap."""
     pytest.importorskip("axm_verify", reason="axm-core not installed")
-    from axm_verify.logic import _validate_hot_stream_continuity
 
     pkts = make_packets(10)
     pkts_with_gap = pkts[:4] + pkts[5:]
     raw = build_axlf_stream(pkts_with_gap)
 
-    errors = _validate_hot_stream_continuity(raw)
+    errors = _run_continuity_check(raw, tmp_path)
     codes = [e.get("code") for e in errors]
     assert "E_BUFFER_DISCONTINUITY" in codes
 
 
-def test_build_axlf_stream_continuity_axm_verify():
+def test_build_axlf_stream_continuity_axm_verify(tmp_path):
     """If axm_verify is installed, a clean stream has no E_BUFFER_DISCONTINUITY."""
     pytest.importorskip("axm_verify", reason="axm-core not installed")
-    from axm_verify.logic import _validate_hot_stream_continuity
 
     raw = build_axlf_stream(make_packets(10))
-    errors = _validate_hot_stream_continuity(raw)
+    errors = _run_continuity_check(raw, tmp_path)
     disc = [e for e in errors if e.get("code") == "E_BUFFER_DISCONTINUITY"]
     assert disc == [], f"unexpected discontinuity errors: {disc}"

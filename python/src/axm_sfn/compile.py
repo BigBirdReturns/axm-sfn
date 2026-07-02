@@ -20,8 +20,13 @@ from axm_build.sign import SUITE_MLDSA44, mldsa44_sign
 from axm_verify.logic import verify_shard
 from nacl.signing import SigningKey
 
+from axm_sfn.attestation import build_attestation_parquet, sign_key_fingerprint
 from axm_sfn.db import PacketRecord, SessionData, load_session
-from axm_sfn.streams import build_axlf_stream, build_streams_parquet
+from axm_sfn.streams import (
+    build_axlf_stream,
+    build_packets_parquet,
+    build_streams_parquet,
+)
 from axm_sfn_core.ids import SFN_NAMESPACE
 
 _PUBLISHER_ID   = "@axm_sfn"
@@ -193,19 +198,31 @@ def compile_session(
 
     # ── Inject cam_latents.bin (AXLF/AXLR custody stream) ────────────────────
     (shard_dir / "content" / "cam_latents.bin").write_bytes(
-        build_axlf_stream(sd.packets)
+        build_axlf_stream(sd.packets, sign_key_fp=sign_key_fingerprint(sd))
     )
 
-    # ── Write ext/streams@1.parquet ───────────────────────────────────────────
+    # ── Write ext/ artifacts ──────────────────────────────────────────────────
+    # streams@1     — AXLR record locators
+    # packets@1     — verbatim canonical packet bytes (hash-over-stored-bytes)
+    # attestation@1 — TPM signatures, quotes, and key material; sealing these
+    #                 under the ML-DSA root is what keeps the hardware-
+    #                 attestation claim verifiable after buffer.db is pruned
     ext_dir = shard_dir / "ext"
     ext_dir.mkdir(exist_ok=True)
     build_streams_parquet(sd.packets, ext_dir / "streams@1.parquet")
+    build_packets_parquet(sd.packets, ext_dir / "packets@1.parquet")
+    build_attestation_parquet(sd, ext_dir / "attestation@1.parquet")
 
     # ── Pass 2: reseal over all content including cam_latents.bin ────────────
     new_root  = compute_merkle_root(shard_dir, suite=suite)
     manifest  = json.loads((shard_dir / "manifest.json").read_bytes())
     manifest["integrity"]["merkle_root"] = new_root
     manifest["shard_id"] = f"shard_blake3_{new_root}"
+    # Spec §10: when ext/ is non-empty, manifest.extensions lists the
+    # extension identifiers (pass 1 ran before ext/ existed).
+    extensions = sorted(f.stem for f in ext_dir.iterdir() if f.is_file())
+    if extensions:
+        manifest["extensions"] = extensions
     man_bytes = dumps_canonical_json(manifest)
     (shard_dir / "manifest.json").write_bytes(man_bytes)
 
