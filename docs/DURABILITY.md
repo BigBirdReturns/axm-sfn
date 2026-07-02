@@ -122,13 +122,16 @@ An honest audit of the stack as it exists in this repo.
    format's arithmetic is sound for the horizon — `frame_id` is uint32 at
    1 Hz, so a single session can run ~136 years before overflow.
 
-2. **Sealed-before-break archival validity.** The shard seal is ML-DSA-44
-   (FIPS 204, post-quantum). The TPM's RSA-PSS packet signatures are
-   *contained inside* the PQ-sealed shard. Therefore an RSA break in 2040
-   does not forge a shard sealed in 2026: the PQ seal is a cryptographic
-   time capsule over the classical signatures. This property is already
-   structurally true and must be stated, tested, and never regressed — it
-   is the entire answer to E6 for the historical archive.
+2. **Sealed-before-break archival validity (designed, not yet delivered).**
+   The shard seal is ML-DSA-44 (FIPS 204, post-quantum). If the TPM's
+   RSA-PSS packet signatures are *contained inside* the PQ-sealed shard,
+   an RSA break in 2040 does not forge a shard sealed in 2026: the PQ seal
+   is a cryptographic time capsule over the classical signatures. This is
+   the entire answer to E6 for the historical archive — but note carefully:
+   **the current compile path does not yet deliver it.** The TPM
+   signatures, quotes, and keys stay behind in the hot buffer (see
+   Exposure 5a and Part 3½). The architecture makes the property cheap to
+   deliver; delivering it is a now-item, not a Phase 3 item.
 
 3. **Offline, local-first custody.** The hot buffer is SQLite WAL on the
    node; sealing is local; the uploader is optional and explicitly *not*
@@ -169,6 +172,19 @@ An honest audit of the stack as it exists in this repo.
    "real industrial capability" lives. The daemon's custody loop, hot
    buffer, and policy engine are already machine-agnostic; the Moonraker
    client is an adapter that hasn't been named as one yet.
+
+5a. **Attestation evidence never reaches the sealed shard.** The AXLR
+   payload carries the BLAKE3 chain link, the SHA-256 digest, a verdict
+   byte, a `tpm_present` flag, and the sequence number — not the TPM
+   signature itself. The journal text records `quoted=true/false`, not
+   signature bytes. The signatures, the quotes (PCR measurements), the AK
+   public key, and the EK certificate chain all remain in `buffer.db`,
+   which is a *hot* buffer and will be pruned. A verifier holding only a
+   sealed shard can verify the BLAKE3 chain and the ML-DSA seal but cannot
+   verify a single TPM signature; once the buffer is gone, the
+   hardware-attestation claim is unverifiable forever. This is the gap
+   between Asset 2's design and its delivery, and it is the highest-
+   priority format fix in the project (Part 3½, item 1).
 
 5. **Software-only degradation is invisible in the record.** When
    `/dev/tpmrm0` is absent, packets are chained but not TPM-signed. Graceful
@@ -243,9 +259,11 @@ The project is currently in endstate E5's basin of attraction. Leave it.
       confirm `compile_generic_shard` call shapes; seal and self-verify a
       real session. (Track 1.5's open box.)
 - [ ] Add `attestation_class` to the custody record so software-only mode
-      is distinguishable inside the sealed shard (INV-D5). This is the one
-      near-term change worth making to the packet content before the
-      install base grows.
+      is distinguishable inside the sealed shard (INV-D5).
+- [ ] Land the shard-content enablers from Part 3½ (attestation evidence
+      into the shard, algorithm/key identifiers, spec-verifiable
+      preimages) **before** generating the golden corpus below — test
+      vectors frozen around the current gap would canonize it.
 - [ ] Publish **SHARD-SPEC v1**: the AXLF/AXLR container (already in
       docs/STREAM_FORMAT.md), the 256-byte CustodyPacket payload layout,
       the BLAKE3 chaining rule, the segment Merkle rule, and the shard
@@ -370,6 +388,77 @@ Aim directly at E5's long tail and E7.
       regulators without anyone owning a trademark cudgel.
 
 **Exit criterion:** the system no longer depends on anyone who built it.
+
+---
+
+## Part 3½ — Phase 3/4 enablers that must land NOW
+
+Phases 3 and 4 are not free-standing future work: each depends on hooks
+that must exist in the format and the evidence chain *before* the install
+base grows. Format decisions fossilize with adoption — all five items
+below are cheap before the first production shard is sealed and become
+migration projects afterward. Items 1–3 change what goes into a shard, so
+they must land **before** the Phase 0 golden corpus is generated, or the
+test vectors freeze around the gap.
+
+### 1. Get the attestation evidence into the shard
+
+The single most urgent item; see Exposure 5a. Add an `ext/attestation@1`
+artifact at compile time carrying: per-packet TPM signatures, the quote
+records (PCR values and quote signatures), the AK public key, and the EK
+certificate chain (including the TPM vendor CA certificates, whose roots
+will themselves expire and disappear). The mechanism already exists —
+`compile.py`'s pass 2 reseals the Merkle root over everything in the shard
+directory including `ext/`, and Genesis ignores `ext/` — so this lands
+under the ML-DSA seal with zero changes to the frozen kernel. This one
+change makes Asset 2's time-capsule property true.
+
+### 2. Algorithm and key identifiers at every layer
+
+`CustodyPacket.TPMSig` is a bare byte slice — no signature algorithm, no
+hash algorithm, no key fingerprint anywhere in the packet or the stream. A
+2045 verifier cannot even know what to try. The shard layer already has
+suite agility (`suite=SUITE_MLDSA44` is a parameter with an Ed25519
+alternative); the packet/TPM layer has none. The AXLR payload's 182
+reserved bytes are the budget: allocate `attestation_class`, `sig_alg`,
+and a signing-key fingerprint now. Reserved-as-zeros → allocated is a
+compatible change today; it stops being one the moment there is an install
+base of shards in which zeros are ambiguous.
+
+### 3. Make the signed preimage spec-verifiable
+
+The canonical bytes that `packet_sha256` and the TPM signature cover are
+currently defined as "whatever Go's `encoding/json` emits for this struct
+in field order." Go's float formatting is not reproducible from a spec by
+a 2056 reimplementer — and the preimage (`telemetry_json`) never enters
+the shard either, so the SHA-256 in the AXLR payload is unverifiable from
+the shard alone. Fix: ship the stored canonical packet bytes into the
+shard (an `ext/packets@1` beside the attestation artifact) and define the
+rule as **hash-over-stored-bytes**, not hash-over-recomputable-
+canonicalization. Stored bytes are the archival-robust definition; a
+canonicalization algorithm is a dependency on a compiler's behavior.
+
+### 4. Define reseal authorization semantics
+
+The two-pass reseal in `compile.py` (recompute Merkle root, re-sign
+manifest) *is* the Phase 3 reseal primitive in embryo. What is missing is
+the semantics: what makes a 2035 reseal with ML-DSA-87 *authorized* rather
+than merely re-signed? Required now: a key-succession rule (building on
+the delegated-identity work in `axm_sfn_core.ids`, INV-25/27) and a hard
+requirement that reseal **retains** the original signature and manifest
+rather than replacing them. Cheap to write down today; contentious to
+invent mid-migration with an archive at stake.
+
+### 5. Start re-anchoring immediately — not in Phase 3
+
+Re-anchoring only proves seal-time *forward from when it starts*. Every
+unanchored year produces shards whose "sealed before the break" claim
+rests on a self-asserted `created_at` (currently defaulting to wall
+clock). The canonical `shard_id` already exists
+(`shard_blake3_<merkle_root>`), so even a crude scheduled job publishing
+digest Merkle roots to two independent public timestamping venues starts
+the clock. This is the cheapest item on the list and the only one where
+delay is strictly irreversible.
 
 ---
 
