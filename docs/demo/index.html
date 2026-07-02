@@ -920,6 +920,8 @@ body {
         <span class="sk">merkle_root</span><span class="sv hash" id="sf-root">—</span>
         <span class="sk">suite</span><span class="sv" id="sf-suite">ML-DSA-44  (axm-blake3-mldsa44)</span>
         <span class="sk">manifest.sig</span><span class="sv sigv" id="sf-sig">—</span>
+        <span class="sk">extensions</span><span class="sv" id="sf-ext">—</span>
+        <span class="sk">evidence</span><span class="sv" id="sf-evidence">—</span>
         <span class="sk">packets</span><span class="sv" id="sf-pkts">—</span>
         <span class="sk">faults</span><span class="sv" id="sf-faults">—</span>
         <span class="sk">final_verdict</span><span class="sv" id="sf-verdict">—</span>
@@ -936,7 +938,7 @@ body {
           <span>✓ Source-captured process evidence</span>
           <span>✓ Hardware-bound, no data-entry step</span>
           <span>✓ Gaps are explicit, not hidden</span>
-          <span>✓ Chain integrity verifiable offline</span>
+          <span>✓ Chain + TPM evidence verifiable from the shard alone</span>
         </div>
         <div class="lane-note">Reduced acceptance testing burden · preferred-supplier tier</div>
       </div>
@@ -2100,7 +2102,12 @@ loadScenario('clean');
 // Simulates what the Python spoke does at session boundary:
 //   build_axlf_stream → cam_latents.bin
 //   compile_generic_shard (pass 1)
-//   inject cam_latents.bin → recompute merkle root
+//   inject cam_latents.bin + ext/ artifacts:
+//     streams@1     — AXLR record locators
+//     packets@1     — verbatim canonical packet bytes (hash-over-stored-bytes)
+//     attestation@1 — TPM sigs, quotes, AK/EK key material (the evidence
+//                     outlives buffer.db because it rides under the seal)
+//   recompute merkle root, set manifest.extensions
 //   mldsa44_sign (reseal)
 //   verify_shard
 
@@ -2171,6 +2178,10 @@ async function simulateCompile() {
   clog(`<span class="clb">inject</span>writing cam_latents.bin → content/`, 'step');
   await delay(220);
   clog(`<span class="clb">inject</span>writing ext/streams@1.parquet → ext/`);
+  await delay(240);
+  clog(`<span class="clb">inject</span>writing ext/packets@1.parquet — ${n} canonical packet payloads (hash-over-stored-bytes)`);
+  await delay(240);
+  clog(`<span class="clb">inject</span>writing ext/attestation@1.parquet — ${n} TPM sigs · ${rec.quoteSeqs.length} quote(s) · AK/EK key material`);
   await delay(280);
   clog(`<span class="clb">compute_merkle_root</span>pass 2 — covering all content + ext/`, 'step');
   await delay(380);
@@ -2184,6 +2195,8 @@ async function simulateCompile() {
   clog(`<span class="clb">merkle_root</span>${rootHex.slice(0,20)}…`);
   await delay(260);
   clog(`<span class="clb">manifest.json</span>shard_id updated → ${shardId.slice(0,28)}…`, 'step');
+  await delay(240);
+  clog(`<span class="clb">manifest.json</span>extensions = [attestation@1, packets@1, streams@1]`);
   await delay(320);
   clog(`<span class="clb">mldsa44_sign</span>re-signing manifest with ML-DSA-44 sk`, 'step');
   await delay(380);
@@ -2199,6 +2212,8 @@ async function simulateCompile() {
   $('sf-root').textContent   = rootHex.slice(0, 36) + '…';
   $('sf-suite').textContent  = 'ML-DSA-44  (axm-blake3-mldsa44)';
   $('sf-sig').textContent    = sigPreview;
+  $('sf-ext').textContent    = 'attestation@1 · packets@1 · streams@1';
+  $('sf-evidence').textContent = `${n} TPM sigs · ${rec.quoteSeqs.length} quote(s) · AK/EK keys — sealed, outlives buffer.db`;
   $('sf-pkts').textContent   = n + ' packets';
   $('sf-faults').textContent = nf + (nf === 1 ? ' provenance fault' : ' provenance faults');
 

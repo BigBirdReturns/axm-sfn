@@ -437,7 +437,7 @@ footer { padding: 40px 64px; border-top: 1px solid var(--rule-strong); display: 
   <p>There is currently no cryptographic protocol for that assumption. axm-sfn is the protocol.</p>
   <div class="mani-grid">
     <div class="mani-card" data-n="I"><div class="mani-rule">The Custody Clock</div><p>The 1 Hz custody ticker is independent of Moonraker's event stream. <strong>Printer silence is recorded, not ignored.</strong> If the machine goes quiet mid-print, the custody clock keeps ticking and records a provenance fault. You cannot delete history by disconnecting the sensor.</p></div>
-    <div class="mani-card" data-n="II"><div class="mani-rule">Hardware Binding</div><p>Every custody packet is signed by a <strong>TPM 2.0 RSA-PSS key</strong> that never leaves the node. TPM quotes bind the PCR state of the platform to specific points in the telemetry chain. A VM cannot impersonate a physical fabrication node.</p></div>
+    <div class="mani-card" data-n="II"><div class="mani-rule">Hardware Binding</div><p>Every custody packet is signed by a <strong>TPM 2.0 RSA-PSS key</strong> that never leaves the node. TPM quotes bind the PCR state of the platform to specific points in the telemetry chain. A VM cannot impersonate a physical fabrication node. At session boundary the signatures, quotes, and key material are sealed <em>into the shard itself</em> — the hardware evidence outlives the hot buffer.</p></div>
     <div class="mani-card" data-n="III"><div class="mani-rule">Non-Selective Recording</div><p>AXM REQ 5 is enforced at the protocol level. The <code>cam_latents.bin</code> frame sequence must be gap-free and monotone. <strong>Any discontinuity is a hard verification failure</strong> — the same exit code as a forged signature. A node that drops frames is not conformant.</p></div>
     <div class="mani-card" data-n="IV"><div class="mani-rule">The Tollbooth Model</div><p>The protocol is open. Anyone can run axm-edge. <strong>Certification is the barrier to entry.</strong> To appear on an approved vendor list, a node must pass the axm-sfn conformance suite, submit a NIST challenge artifact, and produce a signed Material-Process Profile shard. <code>axm-verify</code> is the tollbooth.</p></div>
   </div>
@@ -456,7 +456,7 @@ footer { padding: 40px 64px; border-top: 1px solid var(--rule-strong); display: 
     <div class="pipe-connector">▼ &nbsp; on retryInterval: PacketHashes() → BLAKE3 Merkle root → WriteSegment()</div>
     <div class="pipe-step"><div class="pipe-label"><div class="pipe-name">Uploader</div><div class="pipe-pkg">internal/uploader</div></div><div class="pipe-body">Batches contiguous pending packets and computes a local BLAKE3 Merkle digest — tamper-evidence over the WAL, optionally forwarded to an HTTP endpoint for monitoring. This is <em>not</em> the shard seal; the daemon's job ends at a TPM-attested custody ledger.</div></div>
     <div class="pipe-connector">▼ &nbsp; session boundary: axm-sfn spoke reads buffer.db → compile_generic_shard (via axm-core)</div>
-    <div class="pipe-step"><div class="pipe-label"><div class="pipe-name">axm-sfn spoke</div><div class="pipe-pkg">python/ · axm-core</div></div><div class="pipe-body">At session boundary the Python spoke reads the hot buffer, serializes the custody stream to cam_latents.bin (AXLF/AXLR), and calls <code>compile_generic_shard</code> — the same single compilation path every AXM spoke uses (INV-28). It injects the binary stream, reseals the Merkle root, and self-verifies. Produces an ML-DSA-44 signed AXM Layer 2 journal shard the frozen Genesis kernel validates with no spoke-specific verifier. Verifiable by any party with the publisher key, decades later.</div></div>
+    <div class="pipe-step"><div class="pipe-label"><div class="pipe-name">axm-sfn spoke</div><div class="pipe-pkg">python/ · axm-core</div></div><div class="pipe-body">At session boundary the Python spoke reads the hot buffer, serializes the custody stream to cam_latents.bin (AXLF/AXLR), and calls <code>compile_generic_shard</code> — the same single compilation path every AXM spoke uses (INV-28). It injects the binary stream plus the sealed evidence extensions — <code>ext/packets@1</code> (verbatim canonical packet bytes) and <code>ext/attestation@1</code> (TPM signatures, quotes, AK/EK key material) — then reseals the Merkle root and self-verifies. Produces an ML-DSA-44 signed AXM Layer 2 journal shard the frozen Genesis kernel validates with no spoke-specific verifier. The full custody chain and every TPM signature are checkable from the shard alone — by any party with the publisher key, decades later, long after buffer.db is gone.</div></div>
   </div>
 </section>
 
@@ -561,12 +561,13 @@ footer { padding: 40px 64px; border-top: 1px solid var(--rule-strong); display: 
       <div class="demo-launch-left">
         <div class="demo-launch-kicker">Browser · No install · No network</div>
         <div class="demo-launch-title">Launch Demo</div>
-        <p class="demo-launch-desc">Split-pane view: machine gauges and event log on the left, BLAKE3 custody chain with per-packet verdicts and Merkle segment seals on the right. Three scenarios: clean print, thermal excursion, provenance fault. Tamper a packet mid-chain and watch the invalidation cascade.</p>
+        <p class="demo-launch-desc">Split-pane view: machine gauges and event log on the left, BLAKE3 custody chain with per-packet verdicts and Merkle segment seals on the right. Three scenarios: clean print, thermal excursion, provenance fault. Tamper a packet mid-chain and watch the invalidation cascade — then watch the session compile into a sealed shard carrying its TPM evidence.</p>
         <div class="demo-launch-pills">
           <span class="demo-pill">3 scenarios</span>
           <span class="demo-pill">BLAKE3 chain</span>
           <span class="demo-pill">Merkle seals</span>
           <span class="demo-pill">TPM quotes</span>
+          <span class="demo-pill">sealed evidence</span>
           <span class="demo-pill">tamper detection</span>
           <span class="demo-pill">JSON export</span>
         </div>
@@ -594,12 +595,13 @@ footer { padding: 40px 64px; border-top: 1px solid var(--rule-strong); display: 
       <tr><td><div class="track-item">Policy engine skeleton</div><div class="track-desc">Flat float map evaluator, null policy passes everything</div></td><td><span class="done">✓ done</span></td><td style="font-size:12px;color:var(--white-faint)">internal/policy</td></tr>
       <tr><td><div class="track-item">Unit tests</div><div class="track-desc">15 tests across policy engine and Merkle uploader</div></td><td><span class="done">✓ done</span></td><td style="font-size:12px;color:var(--white-faint)">go test ./...</td></tr>
       <tr>
-        <td rowspan="5" style="color:#6a8ab8;font-family:var(--font-disp);font-size:13px;font-weight:600;letter-spacing:0.06em;vertical-align:top;padding-top:18px;border-top:1px solid var(--rule-strong)">Track 2<br><span style="color:var(--white-faint);font-size:11px;font-weight:400">Certification</span></td>
+        <td rowspan="6" style="color:#6a8ab8;font-family:var(--font-disp);font-size:13px;font-weight:600;letter-spacing:0.06em;vertical-align:top;padding-top:18px;border-top:1px solid var(--rule-strong)">Track 2<br><span style="color:var(--white-faint);font-size:11px;font-weight:400">Certification</span></td>
         <td style="border-top:1px solid var(--rule-strong)"><div class="track-item">MPF schema v1</div><div class="track-desc">JSON Schema + candidates.jsonl pipeline → signed Layer 1 shard</div></td><td><span class="open">○ open</span></td><td style="font-size:12px;color:var(--white-faint)">schema/mpf/</td>
       </tr>
       <tr><td><div class="track-item">Cryptographic tolerance definitions</div><div class="track-desc">ΔT extruder, flow variance, motion fidelity thresholds</div></td><td><span class="open">○ open</span></td><td style="font-size:12px;color:var(--white-faint)">Track 2.2</td></tr>
       <tr><td><div class="track-item">NIST challenge artifact integration</div><div class="track-desc">Calibration run flag, post-print metrology → shard supersession</div></td><td><span class="open">○ open</span></td><td style="font-size:12px;color:var(--white-faint)">Track 2.3</td></tr>
-      <tr><td><div class="track-item">cam_latents.bin serializer (AXLF/AXLR)</div><div class="track-desc">CustodyPacket → embodied stream format; REQ 5 enforced by the frozen Genesis kernel, no spoke verifier</div></td><td><span class="open">○ open</span></td><td style="font-size:12px;color:var(--white-faint)">docs/STREAM_FORMAT.md</td></tr>
+      <tr><td><div class="track-item">cam_latents.bin serializer (AXLF/AXLR)</div><div class="track-desc">CustodyPacket → embodied stream format; REQ 5 enforced by the frozen Genesis kernel, no spoke verifier</div></td><td><span class="done">✓ done</span></td><td style="font-size:12px;color:var(--white-faint)">python/src/axm_sfn/streams.py</td></tr>
+      <tr><td><div class="track-item">Attestation evidence sealed into shard</div><div class="track-desc">ext/attestation@1 + ext/packets@1 — TPM sigs, quotes, AK/EK keys under the ML-DSA seal; chain + signatures verifiable from the shard alone</div></td><td><span class="done">✓ done</span></td><td style="font-size:12px;color:var(--white-faint)">python/src/axm_sfn/attestation.py</td></tr>
       <tr><td><div class="track-item">Certification README</div><div class="track-desc">How nodes get onto an approved vendor list</div></td><td><span class="open">○ open</span></td><td style="font-size:12px;color:var(--white-faint)">certification/</td></tr>
     </tbody>
   </table>
