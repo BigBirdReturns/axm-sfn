@@ -136,6 +136,15 @@ func (b *Buffer) migrate() error {
 		reason      TEXT    NOT NULL,
 		detected_at TEXT    NOT NULL
 	);
+
+	CREATE TABLE IF NOT EXISTS attestation_keys (
+		id          INTEGER PRIMARY KEY AUTOINCREMENT,
+		role        TEXT    NOT NULL,  -- sign_pub | ak_pub | ek_cert
+		alg         TEXT    NOT NULL,  -- tpm2:tpm2b-public | x509:der
+		data        BLOB    NOT NULL,
+		created_at  TEXT    NOT NULL,
+		UNIQUE (role, data)
+	);
 	`
 	_, err := b.db.Exec(schema)
 	return err
@@ -207,6 +216,23 @@ func (b *Buffer) RecordProvenanceFault(ctx context.Context, sessionID string, se
 		sessionID, seq, reason, time.Now().UTC().Format(time.RFC3339Nano),
 	)
 	return err
+}
+
+// WriteAttestationKey persists node key material (TPM public areas, EK cert
+// chain) so shard compilation can seal it into ext/attestation@1. Idempotent:
+// re-registering identical bytes is a no-op, so this is safe on every startup.
+//
+// role: "sign_pub" | "ak_pub" (marshalled TPM2B_PUBLIC) or "ek_cert" (X.509 DER)
+// alg:  "tpm2:tpm2b-public" or "x509:der"
+func (b *Buffer) WriteAttestationKey(ctx context.Context, role, alg string, data []byte) error {
+	_, err := b.db.ExecContext(ctx, `
+		INSERT OR IGNORE INTO attestation_keys (role, alg, data, created_at)
+		VALUES (?, ?, ?, ?)
+	`, role, alg, data, time.Now().UTC().Format(time.RFC3339Nano))
+	if err != nil {
+		return fmt.Errorf("hotbuffer: write attestation key role=%s: %w", role, err)
+	}
+	return nil
 }
 
 // ─── Quote writes ─────────────────────────────────────────────────────────────

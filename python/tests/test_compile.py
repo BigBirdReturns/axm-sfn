@@ -96,8 +96,12 @@ def test_candidates_evidence_uniqueness_raises_on_duplicate():
 
 # ── §9: end-to-end compile + verify ──────────────────────────────────────────
 
-def _write_buffer_db(db_path: Path, session_id: str, packets) -> None:
-    """Write a minimal buffer.db that db.load_session can read."""
+def _write_buffer_db(db_path: Path, session_id: str, packets, quotes=None, keys=None) -> None:
+    """Write a minimal buffer.db that db.load_session can read.
+
+    quotes: optional list of (seq, pcrs_json, nonce, attest_blob, sig, ak_handle)
+    keys:   optional list of (role, alg, data)
+    """
     con = sqlite3.connect(db_path)
     con.execute("""
         CREATE TABLE packets (
@@ -120,18 +124,46 @@ def _write_buffer_db(db_path: Path, session_id: str, packets) -> None:
     """)
     con.execute("""
         CREATE TABLE provenance_faults (
+            id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            session_id  TEXT NOT NULL,
             seq         INTEGER,
             reason      TEXT,
             detected_at TEXT
         )
     """)
+    con.execute("""
+        CREATE TABLE quotes (
+            id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            session_id  TEXT    NOT NULL,
+            seq         INTEGER NOT NULL,
+            pcrs        TEXT    NOT NULL,
+            nonce       BLOB    NOT NULL,
+            attest_blob BLOB    NOT NULL,
+            sig         BLOB    NOT NULL,
+            ak_handle   INTEGER NOT NULL,
+            created_at  TEXT    NOT NULL
+        )
+    """)
+    con.execute("""
+        CREATE TABLE attestation_keys (
+            id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            role        TEXT NOT NULL,
+            alg         TEXT NOT NULL,
+            data        BLOB NOT NULL,
+            created_at  TEXT NOT NULL
+        )
+    """)
     for p in packets:
+        telemetry_json = (
+            p.telemetry_raw.decode("utf-8") if p.telemetry_raw
+            else json.dumps(p.telemetry)
+        )
         con.execute(
             "INSERT INTO packets VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
             (
                 p.seq,
                 session_id,
-                json.dumps(p.telemetry),
+                telemetry_json,
                 p.packet_blake3.hex() if p.packet_blake3 else None,
                 p.packet_sha256.hex() if p.packet_sha256 else None,
                 p.tpm_sig.hex() if p.tpm_sig else None,
@@ -146,6 +178,17 @@ def _write_buffer_db(db_path: Path, session_id: str, packets) -> None:
                 json.dumps(p.violations),
             ),
         )
+    for q in quotes or []:
+        con.execute(
+            "INSERT INTO quotes (session_id, seq, pcrs, nonce, attest_blob, sig, ak_handle, created_at)"
+            " VALUES (?,?,?,?,?,?,?,?)",
+            (session_id, *q, "2025-01-01T00:00:00Z"),
+        )
+    for k in keys or []:
+        con.execute(
+            "INSERT INTO attestation_keys (role, alg, data, created_at) VALUES (?,?,?,?)",
+            (*k, "2025-01-01T00:00:00Z"),
+        )
     con.commit()
     con.close()
 
@@ -158,14 +201,15 @@ def test_compile_session_end_to_end(tmp_path):
     reseal (cam_latents.bin injection, Merkle recompute, re-sign) and confirms
     the frozen kernel accepts the output.
     """
-    from axm_build.sign import generate_keypair
+    from axm_build.sign import mldsa44_keygen
 
     session_id = "test-session-e2e"
     pkts       = make_packets(5)
     db         = tmp_path / "buffer.db"
     _write_buffer_db(db, session_id, pkts)
 
-    sk_pk = generate_keypair(SUITE_MLDSA44)   # sk||pk, 3840 bytes
+    kp    = mldsa44_keygen()
+    sk_pk = kp.secret_key + kp.public_key     # sk||pk, 3840 bytes
     out   = tmp_path / "shards"
     shard = compile_session(db, session_id, sk_pk, out, suite=SUITE_MLDSA44)
 

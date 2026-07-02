@@ -100,6 +100,25 @@ func runDaemon(cfg config.Config, log *slog.Logger) error {
 	}
 	if tpm != nil {
 		defer tpm.Close()
+		// Seal-ready evidence: persist the key material a future verifier
+		// needs. The compiler embeds these into ext/attestation@1; without
+		// them, TPM signatures become unverifiable once the buffer is pruned.
+		ev := tpm.KeyEvidence()
+		if err := buf.WriteAttestationKey(ctx, "sign_pub", "tpm2:tpm2b-public", ev.SignPub); err != nil {
+			return fmt.Errorf("persist sign key evidence: %w", err)
+		}
+		if err := buf.WriteAttestationKey(ctx, "ak_pub", "tpm2:tpm2b-public", ev.AKPub); err != nil {
+			return fmt.Errorf("persist AK evidence: %w", err)
+		}
+		if cfg.TPM.EKCertPath != "" {
+			ekCert, err := os.ReadFile(cfg.TPM.EKCertPath)
+			if err != nil {
+				log.Warn("could not read EK certificate — shards will lack the EK trust chain",
+					"path", cfg.TPM.EKCertPath, "error", err)
+			} else if err := buf.WriteAttestationKey(ctx, "ek_cert", "x509:der", ekCert); err != nil {
+				return fmt.Errorf("persist EK certificate: %w", err)
+			}
+		}
 	}
 
 	// ── Moonraker Client ───────────────────────────────────────────────────
