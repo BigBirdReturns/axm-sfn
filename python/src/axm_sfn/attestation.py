@@ -1,55 +1,42 @@
 """
-Build ext/attestation@1.parquet — the hardware-attestation evidence artifact.
+Build ext/tpm-attestation@1 — the hardware-attestation evidence for a custody
+shard (RFC 0006).
 
-This is the shard's time capsule for the TPM trust chain. Everything a
-verifier needs to check the hardware-attestation claim rides *inside* the
-ML-DSA-sealed shard, so the claim stays verifiable after the hot buffer is
-pruned and after the TPM's RSA cryptography falls: a future forger able to
-break RSA still cannot alter these bytes without breaking the ML-DSA seal,
-so signatures sealed before the break remain evidence of what the hardware
-attested at seal time (given a seal-time anchor — see the anchoring policy
-in axm-genesis docs/DURABILITY.md).
+This is the shard's time capsule for the TPM trust chain. Everything a verifier
+needs to check the hardware-attestation claim rides *inside* the sealed shard,
+so the claim stays verifiable after the hot buffer is pruned and after the TPM's
+RSA cryptography falls: a future forger able to break RSA still cannot alter
+these bytes without breaking the shard's hybrid (axm-hybrid1) seal, so signatures
+sealed before the break remain evidence of what the hardware attested at seal
+time (given a seal-time anchor — see axm-genesis docs/DURABILITY.md).
 
-Row kinds (one parquet, discriminated by `kind`, sorted by (kind, seq)):
+The table never inlines binary. Each stored blob (TPMT_SIGNATURE, TPM2B_ATTEST,
+quote nonce, TPM2B_PUBLIC key area, DER cert) is concatenated into one content
+leaf (content/tpm-attestation.bin) and indexed by (file, offset, length, sha256)
+— exactly how streams@1 indexes cam_latents.bin. The kernel seals it in one pass
+via CompilerConfig.extra_content/extra_ext; there is no reseal.
 
-  packet_sig — one row per TPM-signed packet
-      seq              packet sequence number
-      alg              "tpm2:rsapss-2048-sha256:tpmt-signature"
-      key_fingerprint  hex SHA-256 of the signing key's public-area bytes
-      data             marshalled TPMT_SIGNATURE over SHA-256(canonical bytes,
-                       see ext/packets@1)
+Row kinds (one row per stored blob; `field` discriminates a quote's parts):
 
-  quote — one row per TPM2_Quote
-      seq              packet seq the quote is bound to (via nonce derivation)
-      alg              "tpm2:rsapss-2048-sha256:tpmt-signature"
-      key_fingerprint  hex SHA-256 of the AK's public-area bytes
-      data             marshalled TPMT_SIGNATURE over the attest blob
-      attest           marshalled TPM2B_ATTEST (contains PCR digest + nonce)
-      nonce            qualifying data: SHA-256(session_nonce || packet_sha256
-                       || seq_le || prev_blake3)
-      pcrs             JSON array of quoted PCR indices
+  packet_sig  — one per TPM-signed packet   (seq=packet seq, field=signature)
+      data = marshalled TPMT_SIGNATURE over SHA-256(canonical bytes, see packets@1)
+  quote       — one TPM2_Quote → three rows (seq=the bound packet seq)
+      field=signature  marshalled TPMT_SIGNATURE over the attest blob
+      field=attest     marshalled TPM2B_ATTEST (PCR digest + nonce); pcrs set here
+      field=nonce      qualifying data
+  sign_pub / ak_pub — key material (seq=0, field=public)
+      data = marshalled TPM2B_PUBLIC
+  ek_cert     — endorsement certificate (seq=0, field=certificate)
+      data = DER-encoded certificate
 
-  sign_pub / ak_pub — key material (seq null)
-      alg              "tpm2:tpm2b-public"
-      key_fingerprint  hex SHA-256 of `data` (self-fingerprint)
-      data             marshalled TPM2B_PUBLIC
-
-  ek_cert — endorsement certificate chain (seq null)
-      alg              "x509:der"
-      key_fingerprint  hex SHA-256 of `data`
-      data             DER-encoded certificate
-
-Fingerprint rule: SHA-256 over the exact bytes stored in the `data` column
-of the corresponding key row. No TPM "Name" computation, no re-marshalling —
-recomputable from the shard alone with nothing but SHA-256.
+Fingerprint rule: key_fingerprint = SHA-256 over the exact stored public-area/
+cert bytes — no TPM "Name" computation, recomputable from the shard with SHA-256
+alone. (Named tpm-attestation@1 to stay distinct from RFC 0005's proof-of-when
+attestations@1.)
 """
 import json
 from hashlib import sha256
-from pathlib import Path
 from typing import Optional
-
-import pyarrow as pa
-import pyarrow.parquet as pq
 
 from axm_sfn.db import SessionData
 
@@ -67,16 +54,9 @@ _ROLE_ALGS = {
     ROLE_EK_CERT:  ALG_X509_DER,
 }
 
-ATTESTATION_SCHEMA = pa.schema([
-    ("kind",            pa.string()),
-    ("seq",             pa.int64()),    # null for key/cert rows
-    ("alg",             pa.string()),
-    ("key_fingerprint", pa.string()),
-    ("data",            pa.binary()),
-    ("attest",          pa.binary()),   # quote rows only
-    ("nonce",           pa.binary()),   # quote rows only
-    ("pcrs",            pa.string()),   # quote rows only, JSON array
-])
+# Content path (under the shard's content/ dir) holding the concatenated TPM
+# evidence blobs indexed by ext/tpm-attestation@1.
+TPM_ATTESTATION_CONTENT_FILE = "content/tpm-attestation.bin"
 
 
 def key_fingerprint(data: bytes) -> str:
@@ -92,58 +72,53 @@ def sign_key_fingerprint(sd: SessionData) -> Optional[bytes]:
     return None
 
 
-def build_attestation_parquet(sd: SessionData, out_path: Path) -> bool:
-    """Write ext/attestation@1.parquet if the session carries any TPM evidence.
+def build_tpm_attestation(sd: SessionData) -> tuple[list[dict], bytes]:
+    """Build ext/tpm-attestation@1 rows and the concatenated evidence blob.
 
-    Returns True if the artifact was written. Sessions recorded without a TPM
-    (software-only mode) produce no artifact — absence of the extension is the
-    honest statement that no hardware evidence exists.
+    One row per stored blob, indexing (file, offset, length) + sha256 into
+    content/tpm-attestation.bin. Returns (rows, blob); ([], b"") when the
+    session carries no TPM evidence — absence of the extension is the honest
+    statement that no hardware evidence exists (software-only mode).
     """
     fps = {k.role: key_fingerprint(k.data) for k in sd.attestation_keys}
+    rows: list[dict] = []
+    blob = bytearray()
 
-    rows = []
+    def _put(kind: str, seq: int, field: str, alg: str, key_fp: str,
+             data: bytes, pcrs: str = "") -> None:
+        offset = len(blob)
+        blob.extend(data)
+        rows.append({
+            "kind":            kind,
+            "seq":             seq,
+            "field":           field,
+            "alg":             alg,
+            "key_fingerprint": key_fp,
+            "file":            TPM_ATTESTATION_CONTENT_FILE,
+            "offset":          offset,
+            "length":          len(data),
+            "sha256":          sha256(data).hexdigest(),
+            "pcrs":            pcrs,
+        })
+
     for pkt in sd.packets:
         if not pkt.tpm_sig:
             continue
-        rows.append({
-            "kind":            "packet_sig",
-            "seq":             pkt.seq,
-            "alg":             ALG_TPMT_SIG_RSAPSS,
-            "key_fingerprint": fps.get(ROLE_SIGN_PUB, ""),
-            "data":            pkt.tpm_sig,
-            "attest":          None,
-            "nonce":           None,
-            "pcrs":            None,
-        })
+        _put("packet_sig", pkt.seq, "signature", ALG_TPMT_SIG_RSAPSS,
+             fps.get(ROLE_SIGN_PUB, ""), pkt.tpm_sig)
 
     for q in sd.quotes:
-        rows.append({
-            "kind":            "quote",
-            "seq":             q.seq,
-            "alg":             ALG_TPMT_SIG_RSAPSS,
-            "key_fingerprint": fps.get(ROLE_AK_PUB, ""),
-            "data":            q.sig,
-            "attest":          q.attest_blob,
-            "nonce":           q.nonce,
-            "pcrs":            json.dumps(q.pcrs),
-        })
+        akfp = fps.get(ROLE_AK_PUB, "")
+        _put("quote", q.seq, "signature", ALG_TPMT_SIG_RSAPSS, akfp, q.sig)
+        _put("quote", q.seq, "attest", ALG_TPMT_SIG_RSAPSS, akfp, q.attest_blob,
+             pcrs=json.dumps(q.pcrs, separators=(",", ":")))
+        _put("quote", q.seq, "nonce", ALG_TPMT_SIG_RSAPSS, akfp, q.nonce)
 
     for k in sd.attestation_keys:
-        rows.append({
-            "kind":            k.role,
-            "seq":             None,
-            "alg":             k.alg or _ROLE_ALGS.get(k.role, ""),
-            "key_fingerprint": key_fingerprint(k.data),
-            "data":            k.data,
-            "attest":          None,
-            "nonce":           None,
-            "pcrs":            None,
-        })
+        field = "certificate" if k.role == ROLE_EK_CERT else "public"
+        _put(k.role, 0, field, k.alg or _ROLE_ALGS.get(k.role, ""),
+             key_fingerprint(k.data), k.data)
 
     if not rows:
-        return False
-
-    table = pa.Table.from_pylist(rows, schema=ATTESTATION_SCHEMA)
-    table = table.sort_by([("kind", "ascending"), ("seq", "ascending")])
-    pq.write_table(table, out_path, compression="snappy")
-    return True
+        return [], b""
+    return rows, bytes(blob)

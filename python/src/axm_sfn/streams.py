@@ -1,6 +1,7 @@
 """
 Serialize custody packets to the AXLF/AXLR binary stream (cam_latents.bin)
-and build ext/streams@1.parquet and ext/packets@1.parquet.
+and build the streams@1 / packets@1 extension rows (canonical JSONL, fed to
+the kernel compiler via extra_ext — RFC 0006; no Parquet, no reseal).
 
 Each custody tick maps to one AXLR record. The 256-byte payload encodes the
 packet's cryptographic fingerprint so that any holder of the shard can verify
@@ -15,22 +16,18 @@ Payload layout (256 bytes, little-endian):
   [74]      attestation_class — 0=none  1=TPM 2.0
   [75]      sig_alg        — 0=none  1=TPMT_SIGNATURE (RSA-PSS-2048/SHA-256)
   [76:108]  sign_key_fp    — SHA-256 of the signing key's public area
-                             (the TPM2B_PUBLIC bytes in ext/attestation@1);
+                             (the TPM2B_PUBLIC bytes in ext/tpm-attestation@1);
                              zeros if the key material is unknown
   [108:256] reserved       — zeros
 
 Bytes 74–107 were reserved-as-zeros in the original layout; allocating them
 is backward compatible (old readers ignore them, old streams parse as
 attestation_class=0). A 2045 verifier reads these to know which algorithm
-and key to try before touching ext/attestation@1.
+and key to try before touching ext/tpm-attestation@1.
 """
 import struct
 from hashlib import sha256
-from pathlib import Path
 from typing import Optional
-
-import pyarrow as pa
-import pyarrow.parquet as pq
 
 from axm_sfn_core.protocol import (
     FILE_HEADER_LEN,
@@ -43,6 +40,10 @@ from axm_sfn_core.protocol import (
 )
 from axm_sfn.db import PacketRecord
 
+# Content path (under the shard's content/ dir) that holds the verbatim
+# canonical packet bytes indexed by ext/packets@1 (RFC 0006).
+PACKETS_CONTENT_FILE = "content/packets.bin"
+
 # Payload identifiers — values are frozen once production shards exist.
 ATTESTATION_CLASS_NONE  = 0
 ATTESTATION_CLASS_TPM20 = 1
@@ -51,16 +52,6 @@ SIG_ALG_TPMT_RSAPSS_SHA256  = 1   # marshalled TPMT_SIGNATURE, RSA-PSS-2048/SHA-
 
 _CORE_FMT = struct.Struct("<32s32sBBQBB32s")  # 108 bytes; remainder padded to LATENT_DIM
 _PAD_LEN  = LATENT_DIM - _CORE_FMT.size       # 148 bytes
-
-STREAMS_SCHEMA = pa.schema([
-    ("frame_id",     pa.int32()),
-    ("stream",       pa.string()),
-    ("file",         pa.string()),
-    ("offset",       pa.int64()),
-    ("length",       pa.int32()),
-    ("status",       pa.string()),
-    ("content_hash", pa.string()),
-])
 
 
 def _pack_payload(pkt: PacketRecord, sign_key_fp: Optional[bytes] = None) -> bytes:
@@ -88,7 +79,7 @@ def build_axlf_stream(packets: list[PacketRecord], sign_key_fp: Optional[bytes] 
 
     sign_key_fp: SHA-256 of the TPM signing key's public area (32 bytes),
     stamped into each TPM-signed record so a spec-only verifier knows which
-    key in ext/attestation@1 covers the packet signatures.
+    key in ext/tpm-attestation@1 covers the packet signatures.
     """
     parts = [MAGIC_LATENT_FILE]
     for pkt in packets:
@@ -98,8 +89,12 @@ def build_axlf_stream(packets: list[PacketRecord], sign_key_fp: Optional[bytes] 
     return b"".join(parts)
 
 
-def build_streams_parquet(packets: list[PacketRecord], out_path: Path) -> None:
-    """Write ext/streams@1.parquet — spoke domain extension; genesis ignores ext/."""
+def build_streams_rows(packets: list[PacketRecord]) -> list[dict]:
+    """Rows for ext/streams@1.jsonl — AXLR record locators into cam_latents.bin.
+
+    Fed to compile_generic_shard via extra_ext; the kernel writes canonical
+    JSONL and seals it. genesis treats ext/ as opaque.
+    """
     rows = []
     for i, pkt in enumerate(packets):
         offset  = FILE_HEADER_LEN + i * LATENT_REC_LEN
@@ -118,14 +113,7 @@ def build_streams_parquet(packets: list[PacketRecord], out_path: Path) -> None:
             "status":       status,
             "content_hash": b3_hex,
         })
-
-    table = pa.Table.from_pylist(rows, schema=STREAMS_SCHEMA)
-    table = table.sort_by([
-        ("stream",   "ascending"),
-        ("frame_id", "ascending"),
-        ("offset",   "ascending"),
-    ])
-    pq.write_table(table, out_path, compression="snappy")
+    return rows
 
 
 # ── ext/packets@1 — verbatim canonical packet bytes ───────────────────────────
@@ -136,20 +124,18 @@ def build_streams_parquet(packets: list[PacketRecord], out_path: Path) -> None:
 # CustodyPacket struct) is deliberately NOT part of the verification contract —
 # a spec-only reimplementer never has to reproduce Go's float formatting.
 
-PACKETS_SCHEMA = pa.schema([
-    ("frame_id",  pa.int64()),
-    ("canonical", pa.binary()),   # exact bytes hashed into packet_sha256 / TPM-signed
-])
+def build_packets(packets: list[PacketRecord]) -> tuple[list[dict], bytes]:
+    """Build the ext/packets@1 index and the verbatim-bytes content blob.
 
-
-def build_packets_parquet(packets: list[PacketRecord], out_path: Path) -> bool:
-    """Write ext/packets@1.parquet if canonical packet bytes are available.
-
-    Returns True if the artifact was written. Raises if any stored bytes
-    fail the hash-over-stored-bytes rule — a mismatch here means the buffer
-    is corrupt and must never be sealed into a shard.
+    The exact canonical packet bytes are concatenated into one content leaf
+    (content/packets.bin); each row indexes its slice by (offset, length) and
+    carries packet_sha256. Returns (rows, blob); ([], b"") when no canonical
+    bytes are available. Raises if any stored bytes fail the
+    hash-over-stored-bytes rule — a mismatch means the hot buffer is corrupt
+    and must never be sealed into a shard.
     """
-    rows = []
+    rows: list[dict] = []
+    blob = bytearray()
     for pkt in packets:
         if pkt.telemetry_raw is None:
             continue
@@ -158,12 +144,13 @@ def build_packets_parquet(packets: list[PacketRecord], out_path: Path) -> bool:
                 f"packet seq={pkt.seq}: stored canonical bytes do not hash to "
                 f"packet_sha256 — hot buffer is corrupt, refusing to seal"
             )
-        rows.append({"frame_id": pkt.seq, "canonical": pkt.telemetry_raw})
-
-    if not rows:
-        return False
-
-    table = pa.Table.from_pylist(rows, schema=PACKETS_SCHEMA)
-    table = table.sort_by([("frame_id", "ascending")])
-    pq.write_table(table, out_path, compression="snappy")
-    return True
+        offset = len(blob)
+        blob.extend(pkt.telemetry_raw)
+        rows.append({
+            "seq":           pkt.seq,
+            "file":          PACKETS_CONTENT_FILE,
+            "offset":        offset,
+            "length":        len(pkt.telemetry_raw),
+            "packet_sha256": sha256(pkt.telemetry_raw).hexdigest(),
+        })
+    return rows, bytes(blob)

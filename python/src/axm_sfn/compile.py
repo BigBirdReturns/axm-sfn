@@ -1,10 +1,13 @@
 """
 Compile an axm-sfn custody session into an AXM Layer 2 journal shard.
 
-Follows the two-pass reseal pattern from axm-embodied (INV-28):
-  Pass 1  compile_generic_shard over custody journal + claims
-  Inject  cam_latents.bin  (AXLF/AXLR serialized custody stream)
-  Pass 2  recompute Merkle root, re-sign, self-verify
+One pass, no reseal. The custody journal + claims, the AXLF/AXLR custody
+stream (cam_latents.bin), the verbatim canonical packet bytes, and the TPM
+trust-chain evidence are all handed to compile_generic_shard at once via
+CompilerConfig.extra_content / extra_ext (RFC 0006). The kernel computes the
+Merkle root, signs with axm-hybrid1, derives the sh1_ identity (never stored),
+and self-verifies — this spoke reimplements none of it. (The earlier two-pass
+reseal reimplemented four frozen kernel surfaces; RFC 0006 retires it.)
 """
 import json
 import shutil
@@ -14,19 +17,11 @@ from pathlib import Path
 from typing import Optional
 
 from axm_build.compiler_generic import CompilerConfig, compile_generic_shard
-from axm_build.manifest import dumps_canonical_json
-from axm_build.merkle import compute_merkle_root
-from axm_build.sign import SUITE_MLDSA44, mldsa44_sign
-from axm_verify.logic import verify_shard
-from nacl.signing import SigningKey
+from axm_build.sign import HYBRID1_SK_LEN
 
-from axm_sfn.attestation import build_attestation_parquet, sign_key_fingerprint
+from axm_sfn.attestation import build_tpm_attestation, sign_key_fingerprint
 from axm_sfn.db import PacketRecord, SessionData, load_session
-from axm_sfn.streams import (
-    build_axlf_stream,
-    build_packets_parquet,
-    build_streams_parquet,
-)
+from axm_sfn.streams import build_axlf_stream, build_packets, build_streams_rows
 from axm_sfn_core.ids import SFN_NAMESPACE
 
 _PUBLISHER_ID   = "@axm_sfn"
@@ -142,22 +137,21 @@ def compile_session(
     session_id: str,
     private_key: bytes,
     out_dir: Path,
-    suite: str = SUITE_MLDSA44,
     created_at: Optional[str] = None,
 ) -> Path:
     """
-    Full two-pass compilation of a custody session into an AXM Layer 2 shard.
+    One-pass compilation of a custody session into an AXM Layer 2 shard.
 
-    private_key:
-      ML-DSA-44  sk||pk concatenated = 3840 bytes (passed to CompilerConfig)
-      Ed25519    raw seed             =   32 bytes
+    private_key: a 3904-byte axm-hybrid1 secret key blob (from `axm sfn keygen`
+    or `axm-build keygen`).
 
     Returns the path to the compiled shard directory.
     Raises on any compilation or verification failure.
     """
-    if suite == SUITE_MLDSA44 and len(private_key) not in (2528, 3840):
+    if len(private_key) != HYBRID1_SK_LEN:
         raise ValueError(
-            f"ML-DSA-44 key must be 2528 (sk) or 3840 (sk||pk) bytes, got {len(private_key)}"
+            f"private_key must be a {HYBRID1_SK_LEN}-byte axm-hybrid1 secret blob, "
+            f"got {len(private_key)} bytes (generate one with `axm sfn keygen`)"
         )
 
     if created_at is None:
@@ -181,7 +175,38 @@ def compile_session(
         for c in candidates:
             fh.write(json.dumps(c) + "\n")
 
-    # ── Pass 1: compile generic shard (no binary stream yet) ─────────────────
+    # ── Domain content leaves + registered extension tables (RFC 0006) ────────
+    # Everything below is passed to the ONE compile pass; nothing is written
+    # into the shard after it is sealed. Binary lives in content/; the ext
+    # tables only index it.
+    #
+    # cam_latents.bin — AXLF/AXLR custody stream, located by streams@1.
+    latents_path = work_dir / "cam_latents.bin"
+    latents_path.write_bytes(
+        build_axlf_stream(sd.packets, sign_key_fp=sign_key_fingerprint(sd))
+    )
+    extra_content: list[tuple[str, Path]] = [("cam_latents.bin", latents_path)]
+    extra_ext: dict[str, list[dict]] = {"streams@1": build_streams_rows(sd.packets)}
+
+    # packets@1 — verbatim canonical packet bytes (hash-over-stored-bytes).
+    packet_rows, packets_blob = build_packets(sd.packets)
+    if packet_rows:
+        packets_path = work_dir / "packets.bin"
+        packets_path.write_bytes(packets_blob)
+        extra_content.append(("packets.bin", packets_path))
+        extra_ext["packets@1"] = packet_rows
+
+    # tpm-attestation@1 — TPM signatures, quotes, and key material; sealing
+    # these under the hybrid root keeps the hardware-attestation claim
+    # verifiable after buffer.db is pruned.
+    tpm_rows, tpm_blob = build_tpm_attestation(sd)
+    if tpm_rows:
+        tpm_path = work_dir / "tpm-attestation.bin"
+        tpm_path.write_bytes(tpm_blob)
+        extra_content.append(("tpm-attestation.bin", tpm_path))
+        extra_ext["tpm-attestation@1"] = tpm_rows
+
+    # ── Single pass: the kernel seals, signs, derives id, and self-verifies ───
     cfg = CompilerConfig(
         source_path=source_path,
         candidates_path=candidates_path,
@@ -191,55 +216,12 @@ def compile_session(
         publisher_name=_PUBLISHER_NAME,
         namespace=SFN_NAMESPACE,
         created_at=created_at,
-        suite=suite,
+        extra_content=tuple(extra_content),
+        extra_ext=extra_ext,
     )
     if not compile_generic_shard(cfg):
-        raise RuntimeError(f"compile_generic_shard returned False for session {session_id!r}")
-
-    # ── Inject cam_latents.bin (AXLF/AXLR custody stream) ────────────────────
-    (shard_dir / "content" / "cam_latents.bin").write_bytes(
-        build_axlf_stream(sd.packets, sign_key_fp=sign_key_fingerprint(sd))
-    )
-
-    # ── Write ext/ artifacts ──────────────────────────────────────────────────
-    # streams@1     — AXLR record locators
-    # packets@1     — verbatim canonical packet bytes (hash-over-stored-bytes)
-    # attestation@1 — TPM signatures, quotes, and key material; sealing these
-    #                 under the ML-DSA root is what keeps the hardware-
-    #                 attestation claim verifiable after buffer.db is pruned
-    ext_dir = shard_dir / "ext"
-    ext_dir.mkdir(exist_ok=True)
-    build_streams_parquet(sd.packets, ext_dir / "streams@1.parquet")
-    build_packets_parquet(sd.packets, ext_dir / "packets@1.parquet")
-    build_attestation_parquet(sd, ext_dir / "attestation@1.parquet")
-
-    # ── Pass 2: reseal over all content including cam_latents.bin ────────────
-    new_root  = compute_merkle_root(shard_dir, suite=suite)
-    manifest  = json.loads((shard_dir / "manifest.json").read_bytes())
-    manifest["integrity"]["merkle_root"] = new_root
-    manifest["shard_id"] = f"shard_blake3_{new_root}"
-    # Spec §10: when ext/ is non-empty, manifest.extensions lists the
-    # extension identifiers (pass 1 ran before ext/ existed).
-    extensions = sorted(f.stem for f in ext_dir.iterdir() if f.is_file())
-    if extensions:
-        manifest["extensions"] = extensions
-    man_bytes = dumps_canonical_json(manifest)
-    (shard_dir / "manifest.json").write_bytes(man_bytes)
-
-    # Re-sign with raw sk only (CompilerConfig takes sk||pk; reseal needs sk alone)
-    pub_path = shard_dir / "sig" / "publisher.pub"
-    if suite == SUITE_MLDSA44:
-        sig = mldsa44_sign(private_key[:2528], man_bytes)
-    else:
-        sig = SigningKey(private_key[:32]).sign(man_bytes).signature
-    (shard_dir / "sig" / "manifest.sig").write_bytes(sig)
-
-    # ── Self-verify (mandatory — INV-28) ─────────────────────────────────────
-    result = verify_shard(shard_dir, trusted_key_path=pub_path)
-    if result["status"] != "PASS":
         raise RuntimeError(
-            f"Self-verification failed for session {session_id!r}: "
-            f"{result['error_count']} error(s): {result['errors']}"
+            f"compile_generic_shard failed self-verification for session {session_id!r}"
         )
 
     shutil.rmtree(work_dir)

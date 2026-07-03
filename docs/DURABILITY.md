@@ -83,8 +83,7 @@ from it only by whether INV-D1 and INV-D2 (below) still hold.
 
 ### E5. Bitrot death
 
-axm-core goes unmaintained; the spoke never gets verified end-to-end (it is
-*currently* in this state — see Track 1.5); Moonraker's API drifts; TPM 2.0
+the axm-genesis kernel goes unmaintained; Moonraker's API drifts; TPM 2.0
 hardware ages out; the project dies quietly. Sealed shards become
 unverifiable artifacts within 15 years — cryptographically perfect,
 practically meaningless.
@@ -122,16 +121,17 @@ An honest audit of the stack as it exists in this repo.
    format's arithmetic is sound for the horizon — `frame_id` is uint32 at
    1 Hz, so a single session can run ~136 years before overflow.
 
-2. **Sealed-before-break archival validity (designed, not yet delivered).**
-   The shard seal is ML-DSA-44 (FIPS 204, post-quantum). If the TPM's
-   RSA-PSS packet signatures are *contained inside* the PQ-sealed shard,
+2. **Sealed-before-break archival validity (delivered — RFC 0006).**
+   The shard seal is axm-hybrid1 (Ed25519 ‖ ML-DSA-44); its post-quantum
+   half is ML-DSA-44 (FIPS 204). The TPM's RSA-PSS packet signatures are
+   now *contained inside* the sealed shard (`ext/tpm-attestation@1`), so
    an RSA break in 2040 does not forge a shard sealed in 2026: the PQ seal
    is a cryptographic time capsule over the classical signatures. This is
-   the entire answer to E6 for the historical archive — but note carefully:
-   **the current compile path does not yet deliver it.** The TPM
-   signatures, quotes, and keys stay behind in the hot buffer (see
-   Exposure 5a and Part 3½). The architecture makes the property cheap to
-   deliver; delivering it is a now-item, not a Phase 3 item.
+   the entire answer to E6 for the historical archive. The TPM signatures,
+   quotes, and keys now ride under the hybrid Merkle seal (RFC 0006 — one
+   pass via `extra_content`/`extra_ext`), no longer stranded in the hot
+   buffer. The architecture always made the property cheap to deliver; it
+   is now delivered.
 
 3. **Offline, local-first custody.** The hot buffer is SQLite WAL on the
    node; sealing is local; the uploader is optional and explicitly *not*
@@ -156,15 +156,18 @@ An honest audit of the stack as it exists in this repo.
    decides who gets certified. Until it is federated, the project carries a
    single-root design in its most consequential slot.
 
-2. **The spoke has never run against a live axm-core** (Track 1.5). The
-   only path to a sealed shard is unverified. Until this closes, the
-   project's durability claim is theoretical and E5 is the default
-   trajectory.
+2. **Seal-path verification (closed, Track 1.5).** The spoke now compiles a
+   custody session and the axm-genesis verifier accepts the shard —
+   exercised by CI on every push (23 tests, incl. a compile→verify roundtrip
+   and shard-only chain recomputation). The durability claim for the seal
+   path is no longer theoretical; the residual implementation risk is
+   Exposure 3.
 
-3. **axm-core is a single implementation dependency.** `compile_generic_shard`
-   call shapes are taken from an API spec. If axm-core stalls, the seal
-   path stalls. The shard format needs a specification independent of the
-   implementation, and eventually a second implementation.
+3. **The kernel is a single implementation dependency.** The seal is both
+   produced and checked by one axm-genesis implementation; if it stalls, the
+   seal path stalls. Genesis freezes the shard format in `spec/v1` and ships
+   a second (Go) verifier built from that spec and the vectors alone — the
+   format's substitution test — but a second *compiler* is still future work.
 
 4. **Moonraker/Klipper coupling.** Community-maintained, 3D-printing-
    specific, unlikely to exist in recognizable form in 2056 — and
@@ -255,7 +258,7 @@ planning anchors.
 
 The project is currently in endstate E5's basin of attraction. Leave it.
 
-- [ ] Run the spoke end-to-end against a live `axm-core@v1.1.0` install;
+- [ ] Run the spoke end-to-end against the pinned `axm-genesis` kernel;
       confirm `compile_generic_shard` call shapes; seal and self-verify a
       real session. (Track 1.5's open box.)
 - [ ] Add `attestation_class` to the custody record so software-only mode
@@ -344,11 +347,13 @@ Aim directly at E6. Calendar-driven, not adoption-driven.
       and the `attestation_class` field records which root signed. RSA-PSS
       provisioning gets a published sunset date aligned with CNSA 2.0
       (~2033).
-- [ ] **Seal upgrade path:** ML-DSA-44 is NIST category 2 — adequate now,
-      thin for a 30-year archive. Define the reseal operation (a new shard
-      that contains and re-signs an old shard, ML-DSA-65/87 or SLH-DSA as
-      the conservative hash-based fallback) so the archive can be carried
-      forward without touching the frozen v1 container.
+- [ ] **Seal upgrade path (axm-genesis RFC 0004):** the ML-DSA-44 component
+      of the axm-hybrid1 seal is NIST category 2 — adequate now, thin for a
+      30-year archive. RFC 0004 defines the suite-migration reseal as a
+      *kernel* operation — a new shard that contains and re-signs an old one
+      (ML-DSA-65/87 or SLH-DSA as the conservative hash-based fallback),
+      retaining the original signature and manifest — so the archive can be
+      carried forward without touching the frozen v1 container.
 - [ ] **Re-anchoring program:** on a fixed cadence, publish the Merkle
       root of all known shard digests into multiple independent public
       timestamping venues. After re-anchoring, even a future ML-DSA break
@@ -403,23 +408,26 @@ test vectors freeze around the gap.
 
 ### 1. Get the attestation evidence into the shard
 
-The single most urgent item; see Exposure 5a. Add an `ext/attestation@1`
-artifact at compile time carrying: per-packet TPM signatures, the quote
+The single most urgent item; see Exposure 5a. Add an `ext/tpm-attestation@1`
+table at compile time carrying: per-packet TPM signatures, the quote
 records (PCR values and quote signatures), the AK public key, and the EK
 certificate chain (including the TPM vendor CA certificates, whose roots
-will themselves expire and disappear). The mechanism already exists —
-`compile.py`'s pass 2 reseals the Merkle root over everything in the shard
-directory including `ext/`, and Genesis ignores `ext/` — so this lands
-under the ML-DSA seal with zero changes to the frozen kernel. This one
-change makes Asset 2's time-capsule property true.
+will themselves expire and disappear). The mechanism is RFC 0006 —
+`compile.py` hands the evidence to `compile_generic_shard` in one pass via
+`extra_content` / `extra_ext`, and the kernel seals `ext/` (which Genesis
+otherwise treats as opaque) under the axm-hybrid1 root with zero changes to
+the frozen kernel and no reseal. This one change makes Asset 2's time-capsule
+property true.
 
 ### 2. Algorithm and key identifiers at every layer
 
 `CustodyPacket.TPMSig` is a bare byte slice — no signature algorithm, no
 hash algorithm, no key fingerprint anywhere in the packet or the stream. A
-2045 verifier cannot even know what to try. The shard layer already has
-suite agility (`suite=SUITE_MLDSA44` is a parameter with an Ed25519
-alternative); the packet/TPM layer has none. The AXLR payload's 182
+2045 verifier cannot even know what to try. The shard layer records an
+explicit suite (`axm-hybrid1` — Ed25519 ‖ ML-DSA-44) and inherits its
+cross-migration agility from axm-genesis RFC 0004 (a kernel reseal
+operation); the packet/TPM layer carries no algorithm identifier at all.
+The AXLR payload's 182
 reserved bytes are the budget: allocate `attestation_class`, `sig_alg`,
 and a signing-key fingerprint now. Reserved-as-zeros → allocated is a
 compatible change today; it stops being one the moment there is an install
@@ -440,24 +448,27 @@ canonicalization algorithm is a dependency on a compiler's behavior.
 
 ### 4. Define reseal authorization semantics
 
-The two-pass reseal in `compile.py` (recompute Merkle root, re-sign
-manifest) *is* the Phase 3 reseal primitive in embryo. What is missing is
-the semantics: what makes a 2035 reseal with ML-DSA-87 *authorized* rather
-than merely re-signed? Required now: a key-succession rule (building on
-the delegated-identity work in `axm_sfn_core.ids`, INV-25/27) and a hard
-requirement that reseal **retains** the original signature and manifest
-rather than replacing them. Cheap to write down today; contentious to
-invent mid-migration with an archive at stake.
+The suite-migration reseal is **axm-genesis RFC 0004**, a kernel operation —
+*not* something this spoke does. (The spoke's old compile-time two-pass
+reseal is retired: RFC 0006's one-pass `extra_content` / `extra_ext` replaced
+it, and identity is now the kernel-derived `sh1_`.) RFC 0004 is still
+forward-looking, and what it must pin down is the semantics: what makes a
+2035 reseal with ML-DSA-87 *authorized* rather than merely re-signed?
+Required: a key-succession rule (building on the delegated-identity work in
+`axm_sfn_core.ids`, INV-25/27) and a hard requirement that a reseal
+**retains** the original signature and manifest rather than replacing them.
+Cheap to write down today; contentious to invent mid-migration with an
+archive at stake.
 
 ### 5. Start re-anchoring immediately — not in Phase 3
 
 Re-anchoring only proves seal-time *forward from when it starts*. Every
 unanchored year produces shards whose "sealed before the break" claim
 rests on a self-asserted `created_at` (currently defaulting to wall
-clock). The canonical `shard_id` already exists
-(`shard_blake3_<merkle_root>`), so even a crude scheduled job publishing
-digest Merkle roots to two independent public timestamping venues starts
-the clock. This is the cheapest item on the list and the only one where
+clock). The shard has a stable content-addressed identity already (the
+kernel-derived `sh1_` + BLAKE3 of the manifest bytes), so even a crude
+scheduled job publishing digest Merkle roots to two independent public
+timestamping venues starts the clock. This is the cheapest item on the list and the only one where
 delay is strictly irreversible.
 
 ---

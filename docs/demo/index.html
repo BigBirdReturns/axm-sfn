@@ -918,14 +918,14 @@ body {
         <span class="sk">namespace</span><span class="sv" id="sf-ns">sfn/custody</span>
         <span class="sk">shard_id</span><span class="sv hash" id="sf-id">—</span>
         <span class="sk">merkle_root</span><span class="sv hash" id="sf-root">—</span>
-        <span class="sk">suite</span><span class="sv" id="sf-suite">ML-DSA-44  (axm-blake3-mldsa44)</span>
+        <span class="sk">suite</span><span class="sv" id="sf-suite">axm-hybrid1  (Ed25519 ‖ ML-DSA-44)</span>
         <span class="sk">manifest.sig</span><span class="sv sigv" id="sf-sig">—</span>
         <span class="sk">packets</span><span class="sv" id="sf-pkts">—</span>
         <span class="sk">faults</span><span class="sv" id="sf-faults">—</span>
         <span class="sk">final_verdict</span><span class="sv" id="sf-verdict">—</span>
         <span class="sk">verify_shard</span><span class="sv pv" id="sf-verify">—</span>
         <span class="sk" style="color:var(--white-faint);font-size:9px;padding-top:6px">note</span>
-        <span class="sv dim" style="font-size:9px;padding-top:6px">Segment hashes computed live (BLAKE3 in-browser). Shard pipeline is illustrated — axm-core is not running in this demo. In production, <code>verify_shard</code> runs against the frozen genesis kernel.</span>
+        <span class="sv dim" style="font-size:9px;padding-top:6px">Segment hashes computed live (BLAKE3 in-browser). Shard pipeline is illustrated — the axm-genesis kernel is not running in this demo. In production, <code>verify_shard</code> runs against the frozen genesis kernel.</span>
       </div>
     </div>
     <!-- Two-lane acceptance outcome -->
@@ -2099,10 +2099,9 @@ loadScenario('clean');
 // ── Shard compilation simulation ─────────────────────────────────────────────
 // Simulates what the Python spoke does at session boundary:
 //   build_axlf_stream → cam_latents.bin
-//   compile_generic_shard (pass 1)
-//   inject cam_latents.bin → recompute merkle root
-//   mldsa44_sign (reseal)
-//   verify_shard
+//   build_streams_rows / build_packets / build_tpm_attestation → extra_ext tables
+//   compile_generic_shard (one pass, extra_content/extra_ext, RFC 0006)
+//   kernel: merkle root + axm-hybrid1 sign + derive sh1_ id + self-verify
 
 function shardMerkleRoot(segments) {
   // Top-level merkle over all segment roots: BLAKE3(0x01 || h1 || h2 || ...)
@@ -2118,10 +2117,11 @@ function shardMerkleRoot(segments) {
 }
 
 function simulatedManifestSig(shardId) {
-  // Simulate a ML-DSA-44 sig by hashing shard_id with a demo key domain tag.
-  // 2420 bytes is the actual ML-DSA-44 signature length; we show a prefix.
-  const b = blake3(utf8ToBytes('mldsa44:demo:' + shardId));
-  return bytesToHex(b).slice(0, 32) + '… (ML-DSA-44, 2420 bytes)';
+  // Simulate an axm-hybrid1 sig by hashing shard_id with a demo key domain tag.
+  // 2484 bytes is the actual axm-hybrid1 (Ed25519 ‖ ML-DSA-44) signature length;
+  // we show a prefix.
+  const b = blake3(utf8ToBytes('axm-hybrid1:demo:' + shardId));
+  return bytesToHex(b).slice(0, 32) + '… (axm-hybrid1, 2484 bytes)';
 }
 
 async function simulateCompile() {
@@ -2164,40 +2164,42 @@ async function simulateCompile() {
   await delay(350);
   clog(`<span class="clb">cam_latents.bin</span>${n * 269} bytes  (${n} × 269-byte AXLR records)`);
   await delay(260);
-  clog(`<span class="clb">compile_generic_shard</span>pass 1 — source.txt + candidates.jsonl`, 'step');
-  await delay(400);
-  clog(`<span class="clb">manifest.json</span>pass 1 shard created  namespace=sfn/custody`);
-  await delay(260);
-  clog(`<span class="clb">inject</span>writing cam_latents.bin → content/`, 'step');
-  await delay(220);
-  clog(`<span class="clb">inject</span>writing ext/streams@1.parquet → ext/`);
+  clog(`<span class="clb">extra_ext</span>build_streams_rows · build_packets · build_tpm_attestation`, 'step');
+  await delay(300);
+  clog(`<span class="clb">extra_content</span>cam_latents.bin · packets.bin · tpm-attestation.bin → content/`);
   await delay(280);
-  clog(`<span class="clb">compute_merkle_root</span>pass 2 — covering all content + ext/`, 'step');
+  clog(`<span class="clb">compile_generic_shard</span>one pass — source.txt + candidates.jsonl + extra_content/extra_ext (RFC 0006)`, 'step');
+  await delay(400);
+  clog(`<span class="clb">kernel</span>writing ext/streams@1.jsonl · packets@1.jsonl · tpm-attestation@1.jsonl (canonical JSONL)`);
+  await delay(280);
+  clog(`<span class="clb">merkle_root</span>kernel computes BLAKE3 root over content + ext/`, 'step');
   await delay(380);
 
   // Compute the shard merkle root from actual segment data
   const rootBytes = shardMerkleRoot(rec.segments);
   const rootHex   = bytesToHex(rootBytes);
-  const shardId   = 'shard_blake3_' + rootHex;
+  // Identity is derived, never stored: sh1_ + BLAKE3 of the manifest bytes
+  // (represented here by the sealed merkle root).
+  const shardId   = 'sh1_' + bytesToHex(blake3(utf8ToBytes('axm-genesis/v1/manifest\x00' + rootHex)));
   const sigPreview = simulatedManifestSig(shardId);
 
   clog(`<span class="clb">merkle_root</span>${rootHex.slice(0,20)}…`);
   await delay(260);
-  clog(`<span class="clb">manifest.json</span>shard_id updated → ${shardId.slice(0,28)}…`, 'step');
+  clog(`<span class="clb">shard_id</span>derived ${shardId.slice(0,24)}…  (sh1_ + BLAKE3(manifest), never stored)`, 'step');
   await delay(320);
-  clog(`<span class="clb">mldsa44_sign</span>re-signing manifest with ML-DSA-44 sk`, 'step');
+  clog(`<span class="clb">axm-hybrid1</span>kernel signs manifest — Ed25519 ‖ ML-DSA-44, one pass, no reseal`, 'step');
   await delay(380);
-  clog(`<span class="clb">verify_shard</span>running self-verification…`, 'step');
+  clog(`<span class="clb">verify_shard</span>kernel self-verification…`, 'step');
   await delay(420);
   clog(`<span class="clb">verify_shard</span>PASS — 0 errors — shard integrity confirmed`, 'ok');
   await delay(180);
-  clog(`<span class="clb" style="color:var(--white-faint)">note</span><span style="color:var(--white-faint);font-size:9.5px">hashes are live BLAKE3 · verify_shard illustrated (axm-core not running in demo)</span>`);
+  clog(`<span class="clb" style="color:var(--white-faint)">note</span><span style="color:var(--white-faint);font-size:9.5px">hashes are live BLAKE3 · verify_shard illustrated (kernel not running in demo)</span>`);
 
   // Fill shard card
   $('sf-ns').textContent     = 'sfn/custody';
   $('sf-id').textContent     = shardId.slice(0, 36) + '…';
   $('sf-root').textContent   = rootHex.slice(0, 36) + '…';
-  $('sf-suite').textContent  = 'ML-DSA-44  (axm-blake3-mldsa44)';
+  $('sf-suite').textContent  = 'axm-hybrid1  (Ed25519 ‖ ML-DSA-44)';
   $('sf-sig').textContent    = sigPreview;
   $('sf-pkts').textContent   = n + ' packets';
   $('sf-faults').textContent = nf + (nf === 1 ? ' provenance fault' : ' provenance faults');

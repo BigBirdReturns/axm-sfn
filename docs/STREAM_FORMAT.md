@@ -95,7 +95,7 @@ continuity guarantee.
 [74]      attestation_class  — 0=none  1=TPM 2.0
 [75]      sig_alg            — 0=none  1=TPMT_SIGNATURE (RSA-PSS-2048/SHA-256)
 [76:108]  sign_key_fp        — SHA-256 of the signing key's public area
-                               (the TPM2B_PUBLIC bytes in ext/attestation@1);
+                               (the TPM2B_PUBLIC bytes in ext/tpm-attestation@1);
                                zeros when unknown
 [108:256] reserved           — zeros
 ```
@@ -108,22 +108,26 @@ assigned — new algorithms get new codes, never reused ones.
 
 ## Extension artifacts (spoke domain — Genesis treats `ext/` as opaque)
 
-All three ride under the shard's ML-DSA-44 Merkle seal (the two-pass reseal
-covers `ext/`), so they carry the same tamper-evidence as the core tables.
+All three are canonical **JSONL** tables that ride under the shard's
+**axm-hybrid1** (Ed25519 ‖ ML-DSA-44) Merkle seal. The spoke hands them — plus
+the binary they index — to `compile_generic_shard`, and the kernel seals
+everything in **one pass** via `extra_content` / `extra_ext` (RFC 0006); there
+is no two-pass reseal. So they carry the same tamper-evidence as the core tables.
 
 | Artifact | Contents |
 |---|---|
-| `ext/streams@1.parquet` | AXLR record locators (frame_id → offset/length/status/chain hash) |
-| `ext/packets@1.parquet` | `(frame_id, canonical)` — the **verbatim** canonical packet bytes |
-| `ext/attestation@1.parquet` | TPM evidence: per-packet signatures, quotes (PCRs, nonce, attest blob), signing-key + AK public areas, EK certificate chain |
+| `ext/streams@1.jsonl` | AXLR record locators (frame_id → offset/length/status/chain hash) into `content/cam_latents.bin` |
+| `ext/packets@1.jsonl` | the **verbatim** canonical packet bytes, stored in `content/packets.bin` and indexed by `(seq, offset, length, packet_sha256)` |
+| `ext/tpm-attestation@1.jsonl` | TPM evidence stored in `content/tpm-attestation.bin`, indexed per blob: per-packet signatures, quotes (PCRs, nonce, attest blob), signing-key + AK public areas, EK certificate chain |
 
 ### Archival verification rules (shard-only — no daemon, no buffer.db)
 
 1. **Hash-over-stored-bytes.** For every AXLR record,
-   `packet_sha256 == SHA-256(canonical)` where `canonical` comes from
-   `ext/packets@1`. The Go canonicalization that produced the bytes is *not*
-   part of the contract; only the stored bytes are.
-2. **TPM packet signature.** Each `packet_sig` row in `ext/attestation@1`
+   `packet_sha256 == SHA-256(stored_bytes)` where `stored_bytes` is the slice
+   of `content/packets.bin` that `ext/packets@1` locates by `(offset, length)`.
+   The Go canonicalization that produced the bytes is *not* part of the
+   contract; only the stored bytes are.
+2. **TPM packet signature.** Each `packet_sig` row in `ext/tpm-attestation@1`
    verifies over `packet_sha256` under the `sign_pub` key row whose
    fingerprint (SHA-256 of its `data` bytes) matches the record's
    `sign_key_fp` payload field.
@@ -137,6 +141,6 @@ covers `ext/`), so they carry the same tamper-evidence as the core tables.
    platform state (PCRs) to a specific point in the chain; the quote signature
    verifies under the `ak_pub` row, whose key traces to the `ek_cert` chain.
 
-A session recorded without a TPM produces no `attestation@1` artifact —
+A session recorded without a TPM produces no `tpm-attestation@1` artifact —
 absence of the extension is the explicit statement that no hardware evidence
 exists (matching `tpm_present=0` / `attestation_class=0` in every record).

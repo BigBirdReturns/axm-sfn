@@ -9,8 +9,6 @@ from pathlib import Path
 
 import click
 
-from axm_build.sign import SUITE_ED25519, SUITE_MLDSA44
-
 
 @click.group("sfn")
 def sfn_group():
@@ -23,14 +21,12 @@ def sfn_group():
 @click.option("--session", required=True,
               help="Session ID to compile (hex string from the daemon log)")
 @click.option("--key",     required=True, type=click.Path(exists=True, path_type=Path),
-              help="Publisher key file (ML-DSA-44 sk||pk = 3840 B, or Ed25519 seed = 32 B)")
+              help="Publisher secret key: a 3904-byte axm-hybrid1 blob "
+                   "(from `axm sfn keygen` or `axm-build keygen`)")
 @click.option("--out",     default="./shards", show_default=True,
               type=click.Path(path_type=Path),
               help="Output directory for compiled shards")
-@click.option("--suite",   default=SUITE_MLDSA44, show_default=True,
-              type=click.Choice([SUITE_MLDSA44, SUITE_ED25519]),
-              help="Signing suite")
-def compile_cmd(db: Path, session: str, key: Path, out: Path, suite: str):
+def compile_cmd(db: Path, session: str, key: Path, out: Path):
     """Compile a custody session into an AXM Layer 2 journal shard."""
     from axm_sfn.compile import compile_session
 
@@ -44,7 +40,6 @@ def compile_cmd(db: Path, session: str, key: Path, out: Path, suite: str):
             session_id=session,
             private_key=private_key,
             out_dir=out,
-            suite=suite,
         )
         click.echo(f"✓  Shard compiled and verified: {shard_path}")
     except Exception as exc:
@@ -53,27 +48,20 @@ def compile_cmd(db: Path, session: str, key: Path, out: Path, suite: str):
 
 
 @sfn_group.command("keygen")
-@click.option("--out",   default="./sfn-key.bin", show_default=True,
+@click.option("--out", default="./sfn-key.bin", show_default=True,
               type=click.Path(path_type=Path),
               help="Output path for the private key file")
-@click.option("--suite", default=SUITE_MLDSA44, show_default=True,
-              type=click.Choice([SUITE_MLDSA44, SUITE_ED25519]),
-              help="Signing suite")
-def keygen_cmd(out: Path, suite: str):
-    """Generate a publisher signing key for AXM SFN compilation."""
-    if suite == SUITE_MLDSA44:
-        from axm_build.sign import mldsa44_keygen
-        kp = mldsa44_keygen()
-        key_bytes = kp.secret_key + kp.public_key  # sk||pk = 3840 B for CompilerConfig
-        pub_bytes = kp.public_key
-    else:
-        from nacl.signing import SigningKey
-        sk = SigningKey.generate()
-        key_bytes = bytes(sk)
-        pub_bytes = bytes(sk.verify_key)
+def keygen_cmd(out: Path):
+    """Generate an axm-hybrid1 publisher key for AXM SFN compilation.
 
-    out.write_bytes(key_bytes)
+    There is no default signing key anywhere in the toolchain; a signature
+    under a published key proves integrity, never authenticity.
+    """
+    from axm_build.sign import hybrid1_keygen
+
+    public_key, secret_key = hybrid1_keygen()   # 1344-byte pub, 3904-byte secret
+    out.write_bytes(secret_key)
     pub_path = out.with_suffix(".pub")
-    pub_path.write_bytes(pub_bytes)
-    click.echo(f"✓  Key:    {out}")
+    pub_path.write_bytes(public_key)
+    click.echo(f"✓  Key:    {out}  (3904-byte axm-hybrid1 secret — keep offline)")
     click.echo(f"✓  Public: {pub_path}")

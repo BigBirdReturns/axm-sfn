@@ -11,6 +11,9 @@
 # Test binary, built with `go test -c`
 *.test
 
+# Daemon binary from `go build ./cmd/axm-edge/` at the repo root
+/axm-edge
+
 # Code coverage profiles and other test artifacts
 *.out
 coverage.*
@@ -34,3 +37,7 @@ go.work.sum
 # Python
 __pycache__/
 *.pyc
+*.egg-info/
+.pytest_cache/
+build/
+dist/

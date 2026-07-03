@@ -126,14 +126,14 @@ def test_build_axlf_stream_gap():
 
 
 def _run_continuity_check(raw: bytes, tmp_path) -> list[dict]:
-    """Run the kernel's REQ-5 validator over raw AXLF bytes."""
-    from axm_verify.logic import _validate_hot_stream_continuity
+    """Run the kernel's embodied@1 hot-stream continuity check over raw AXLF bytes."""
+    from axm_verify.profiles.embodied_v1 import check as embodied_check
 
     content_dir = tmp_path / "content"
     content_dir.mkdir()
     (content_dir / "cam_latents.bin").write_bytes(raw)
     errors: list[dict] = []
-    _validate_hot_stream_continuity(content_dir, errors)
+    embodied_check(tmp_path, errors)   # shard_root; reads content/cam_latents.bin
     return errors
 
 
