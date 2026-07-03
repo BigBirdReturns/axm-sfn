@@ -34,3 +34,7 @@ go.work.sum
 # Python
 __pycache__/
 *.pyc
+*.egg-info/
+.pytest_cache/
+build/
+dist/

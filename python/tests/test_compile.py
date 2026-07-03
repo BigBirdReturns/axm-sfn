@@ -17,12 +17,12 @@ from pathlib import Path
 
 import pytest
 
-# Skip the entire module when axm-core is absent — every function here
+# Skip the entire module when the kernel is absent — every function here
 # transitively imports from axm_build or axm_verify.
-pytest.importorskip("axm_build", reason="axm-core not installed — skip compile tests")
-pytest.importorskip("axm_verify", reason="axm-core not installed — skip compile tests")
+pytest.importorskip("axm_build", reason="axm-genesis not installed — skip compile tests")
+pytest.importorskip("axm_verify", reason="axm-genesis not installed — skip compile tests")
 
-from axm_build.sign import SUITE_ED25519, SUITE_MLDSA44  # noqa: E402
+from axm_build.sign import HYBRID1_SK_LEN  # noqa: E402
 from axm_sfn.compile import build_candidates, build_journal_text, compile_session  # noqa: E402
 from tests.conftest import make_packets, make_session  # noqa: E402
 
@@ -30,43 +30,22 @@ from tests.conftest import make_packets, make_session  # noqa: E402
 # ── §2: private key length guard ─────────────────────────────────────────────
 
 def test_private_key_length_guard_rejects_wrong_length():
-    """compile_session raises ValueError when ML-DSA-44 key is neither 2528 nor 3840 bytes."""
+    """compile_session raises ValueError when the key is not a 3904-byte hybrid1 blob."""
     with tempfile.TemporaryDirectory() as tmp:
         db  = Path(tmp) / "buf.db"
         out = Path(tmp) / "out"
-        # 64 bytes — wrong length for ML-DSA-44
-        with pytest.raises(ValueError, match="ML-DSA-44 key must be"):
-            compile_session(db, "s1", b"\x00" * 64, out, suite=SUITE_MLDSA44)
+        with pytest.raises(ValueError, match="3904-byte axm-hybrid1"):
+            compile_session(db, "s1", b"\x00" * 64, out)
 
 
-def test_private_key_length_guard_accepts_sk_only():
-    """Guard passes for 2528-byte key; failure comes from missing db, not the guard."""
-    with tempfile.TemporaryDirectory() as tmp:
-        db  = Path(tmp) / "buf.db"
-        out = Path(tmp) / "out"
-        with pytest.raises(Exception) as exc_info:
-            compile_session(db, "s1", b"\x00" * 2528, out, suite=SUITE_MLDSA44)
-        assert "ML-DSA-44 key must be" not in str(exc_info.value)
-
-
-def test_private_key_length_guard_accepts_sk_pk():
-    """Guard passes for 3840-byte key; failure comes from missing db, not the guard."""
+def test_private_key_length_guard_accepts_correct_length():
+    """Guard passes for a 3904-byte key; failure then comes from the missing db."""
     with tempfile.TemporaryDirectory() as tmp:
         db  = Path(tmp) / "buf.db"
         out = Path(tmp) / "out"
         with pytest.raises(Exception) as exc_info:
-            compile_session(db, "s1", b"\x00" * 3840, out, suite=SUITE_MLDSA44)
-        assert "ML-DSA-44 key must be" not in str(exc_info.value)
-
-
-def test_private_key_length_guard_ed25519_not_checked():
-    """Ed25519 path has no length guard — any length reaches load_session."""
-    with tempfile.TemporaryDirectory() as tmp:
-        db  = Path(tmp) / "buf.db"
-        out = Path(tmp) / "out"
-        with pytest.raises(Exception) as exc_info:
-            compile_session(db, "s1", b"\x00" * 3840, out, suite=SUITE_ED25519)
-        assert "ML-DSA-44 key must be" not in str(exc_info.value)
+            compile_session(db, "s1", b"\x00" * HYBRID1_SK_LEN, out)
+        assert "3904-byte axm-hybrid1" not in str(exc_info.value)
 
 
 # ── §6: candidates evidence uniqueness ───────────────────────────────────────
@@ -197,24 +176,28 @@ def test_compile_session_end_to_end(tmp_path):
     """
     Synthetic buffer.db → compile_session → verify_shard must return PASS.
 
-    This is the key integration smoke test: it exercises the full two-pass
-    reseal (cam_latents.bin injection, Merkle recompute, re-sign) and confirms
-    the frozen kernel accepts the output.
+    The key integration smoke test: it exercises the ONE-pass compile
+    (cam_latents.bin + registered ext tables via extra_content/extra_ext) and
+    confirms the frozen kernel accepts the output. No reseal is performed.
     """
-    from axm_build.sign import mldsa44_keygen
+    from axm_build.sign import hybrid1_keygen
 
     session_id = "test-session-e2e"
     pkts       = make_packets(5)
     db         = tmp_path / "buffer.db"
     _write_buffer_db(db, session_id, pkts)
 
-    kp    = mldsa44_keygen()
-    sk_pk = kp.secret_key + kp.public_key     # sk||pk, 3840 bytes
+    _pub, secret_key = hybrid1_keygen()       # 3904-byte axm-hybrid1 secret
     out   = tmp_path / "shards"
-    shard = compile_session(db, session_id, sk_pk, out, suite=SUITE_MLDSA44)
+    shard = compile_session(db, session_id, secret_key, out)
 
     from axm_verify.logic import verify_shard
     pub_path = shard / "sig" / "publisher.pub"
     result   = verify_shard(shard, trusted_key_path=pub_path)
     assert result["status"] == "PASS",      f"verify_shard failed: {result}"
     assert result["error_count"] == 0,      f"unexpected errors: {result['errors']}"
+
+    # Identity is derived, never stored (spec §9).
+    manifest = json.loads((shard / "manifest.json").read_bytes())
+    assert "shard_id" not in manifest
+    assert manifest["suite"] == "axm-hybrid1"
