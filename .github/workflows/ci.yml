@@ -20,7 +20,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           repository: BigBirdReturns/axm-genesis
-          ref: bdeb2ba07f83ff3fae07e5beb335034f4853a73f
+          ref: fffe7cf0f1c78c8c4bea5f303099db80f7c53ba3
           path: axm-genesis
 
       - uses: actions/setup-python@v5
@@ -36,6 +36,9 @@ jobs:
       - name: Spoke tests (compile -> verify roundtrip + shard-only recompute)
         working-directory: axm-sfn/python
         run: python -m pytest tests/ -v
+
+      - name: Drift check (kernel-boundary lint, sourced from genesis)
+        run: bash axm-genesis/tools/drift-check.sh axm-sfn
 
   edge-daemon:
     runs-on: ubuntu-latest

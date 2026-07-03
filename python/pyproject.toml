@@ -13,7 +13,7 @@ dependencies = [
     # axm-genesis[mldsa-compat]>=1.0.0,<2. sfn imports only axm_build / axm_verify
     # (the kernel), so it depends on axm-genesis directly, not the axm-core hub;
     # all crypto comes transitively — do not declare blake3/pynacl directly (INV-26).
-    "axm-genesis[mldsa-compat] @ git+https://github.com/BigBirdReturns/axm-genesis.git@bdeb2ba07f83ff3fae07e5beb335034f4853a73f",
+    "axm-genesis[mldsa-compat] @ git+https://github.com/BigBirdReturns/axm-genesis.git@fffe7cf0f1c78c8c4bea5f303099db80f7c53ba3",
     "click>=8.0.0",
 ]
 
