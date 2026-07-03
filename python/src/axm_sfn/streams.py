@@ -1,6 +1,7 @@
 """
 Serialize custody packets to the AXLF/AXLR binary stream (cam_latents.bin)
-and build ext/streams@1.parquet and ext/packets@1.parquet.
+and build the streams@1 / packets@1 extension rows (canonical JSONL, fed to
+the kernel compiler via extra_ext — RFC 0006; no Parquet, no reseal).
 
 Each custody tick maps to one AXLR record. The 256-byte payload encodes the
 packet's cryptographic fingerprint so that any holder of the shard can verify
@@ -15,14 +16,14 @@ Payload layout (256 bytes, little-endian):
   [74]      attestation_class — 0=none  1=TPM 2.0
   [75]      sig_alg        — 0=none  1=TPMT_SIGNATURE (RSA-PSS-2048/SHA-256)
   [76:108]  sign_key_fp    — SHA-256 of the signing key's public area
-                             (the TPM2B_PUBLIC bytes in ext/attestation@1);
+                             (the TPM2B_PUBLIC bytes in ext/tpm-attestation@1);
                              zeros if the key material is unknown
   [108:256] reserved       — zeros
 
 Bytes 74–107 were reserved-as-zeros in the original layout; allocating them
 is backward compatible (old readers ignore them, old streams parse as
 attestation_class=0). A 2045 verifier reads these to know which algorithm
-and key to try before touching ext/attestation@1.
+and key to try before touching ext/tpm-attestation@1.
 """
 import struct
 from hashlib import sha256
@@ -78,7 +79,7 @@ def build_axlf_stream(packets: list[PacketRecord], sign_key_fp: Optional[bytes] 
 
     sign_key_fp: SHA-256 of the TPM signing key's public area (32 bytes),
     stamped into each TPM-signed record so a spec-only verifier knows which
-    key in ext/attestation@1 covers the packet signatures.
+    key in ext/tpm-attestation@1 covers the packet signatures.
     """
     parts = [MAGIC_LATENT_FILE]
     for pkt in packets:
