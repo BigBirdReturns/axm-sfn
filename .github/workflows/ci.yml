@@ -49,7 +49,8 @@ jobs:
         with:
           go-version: "1.24"
 
-      - name: Build and vet the axm-edge daemon
+      - name: Build, vet, and test the axm-edge daemon
         run: |
           go build ./cmd/...
           go vet ./...
+          go test ./...
