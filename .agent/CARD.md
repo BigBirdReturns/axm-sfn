@@ -21,7 +21,7 @@ Canonical checkout: `D:\Projects\Organs\AXM\axm-sfn\main`
 
 ## Staleness
 - generated_at: 2026-07-23
-- source_commit: d23b292
+- source_commit: f623ea3
 - regenerate: `python D:/Projects/Tooling/Estate/main/cards.py axm-sfn --write`
 
 This card is GENERATED. If it disagrees with the repository, the repository is right. Do not hand-edit this card — regenerate it: python D:/Projects/Tooling/Estate/main/cards.py axm-sfn --write
